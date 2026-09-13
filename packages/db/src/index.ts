@@ -7,6 +7,17 @@ export function createPrismaClient(connectionString: string): PrismaClient {
   return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 }
 
+/**
+ * Connection string for batch jobs such as the imports: DIRECT_URL when set, otherwise
+ * DATABASE_URL. On Supabase, DIRECT_URL is the session pooler; the API's runtime
+ * DATABASE_URL is the transaction pooler, which doesn't suit long-running jobs.
+ */
+export function directDatabaseUrl(): string {
+  const url = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+  if (!url) throw new Error('Set DIRECT_URL or DATABASE_URL');
+  return url;
+}
+
 let shared: PrismaClient | undefined;
 
 /**

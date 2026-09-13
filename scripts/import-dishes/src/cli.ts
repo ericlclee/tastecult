@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { getPrisma } from '@tastecult/db';
+import { createPrismaClient, directDatabaseUrl } from '@tastecult/db';
 import { config as loadEnv } from 'dotenv';
 import { importCatalogue } from './import';
 import { parseDishesCsv, parseLondonMentions } from './source';
@@ -53,7 +53,7 @@ console.log(
 if (values['dry-run']) {
   console.log('[dry run] nothing written');
 } else {
-  const prisma = getPrisma();
+  const prisma = createPrismaClient(directDatabaseUrl());
   try {
     const result = await importCatalogue(prisma, catalogue);
     console.log(

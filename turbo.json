@@ -1,6 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalPassThroughEnv": ["DATABASE_URL", "TEST_DATABASE_URL"],
+  "globalPassThroughEnv": ["DATABASE_URL", "DIRECT_URL", "TEST_DATABASE_URL"],
   "tasks": {
     "db:generate": {
       // Chains through packages without the script, so apps that only reach
