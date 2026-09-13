@@ -1,5 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalPassThroughEnv": ["DATABASE_URL", "TEST_DATABASE_URL"],
   "tasks": {
     "db:generate": {
       "inputs": ["prisma/schema.prisma"],
@@ -14,8 +15,7 @@
     },
     "lint": {},
     "test": {
-      "dependsOn": ["^db:generate", "db:generate"],
-      "env": ["TEST_DATABASE_URL"]
+      "dependsOn": ["^db:generate", "db:generate"]
     }
   }
 }
