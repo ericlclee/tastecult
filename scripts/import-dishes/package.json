@@ -1,0 +1,19 @@
+{
+  "name": "@tastecult/import-dishes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tastecult/db": "workspace:*",
+    "@tastecult/shared-types": "workspace:*",
+    "csv-parse": "7.0.2",
+    "dotenv": "17.4.2",
+    "zod": "4.6.4"
+  }
+}

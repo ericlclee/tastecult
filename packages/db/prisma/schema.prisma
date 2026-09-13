@@ -1,0 +1,236 @@
+// Domain model for TasteCult. Things Prisma can't express (pg_trgm extension,
+// tier CHECK constraint) live in hand-edited migration SQL — keep them in sync.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum DishStatus {
+  APPROVED
+  PENDING
+  REJECTED
+}
+
+enum ReportTarget {
+  USER
+  RATING
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+model User {
+  // Supabase auth.uid — identity (email etc.) lives in Supabase, not here
+  id          String   @id
+  username    String   @unique
+  displayName String?
+  avatarUrl   String?
+  role        Role     @default(USER)
+  createdAt   DateTime @default(now())
+
+  ratings             Rating[]
+  following           Follow[]             @relation("Following")
+  followers           Follow[]             @relation("Followers")
+  blocking            Block[]              @relation("Blocking")
+  blockedBy           Block[]              @relation("BlockedBy")
+  requestedDishes     Dish[]
+  menuItemsCreated    MenuItem[]
+  reports             Report[]
+  missingPlaceReports MissingPlaceReport[]
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocking", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("BlockedBy", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+/// Sourced from the UK FSA Food Hygiene Rating Scheme open data — never user-created.
+model Restaurant {
+  id             String    @id @default(cuid())
+  fhrsId         Int       @unique
+  name           String
+  address        String?
+  postcode       String?
+  latitude       Float?
+  longitude      Float?
+  businessType   String
+  businessTypeId Int
+  localAuthority String
+  hygieneRating  String?
+  // Set when the business disappears from the FHRS feed; logs keep referencing it
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  menuItems MenuItem[]
+
+  @@index([latitude, longitude])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Restaurant_name_trgm_idx")
+}
+
+model Cuisine {
+  id          String @id @default(cuid())
+  slug        String @unique
+  name        String
+  // Roll-ups so filters work at any level: Thai -> Southeast Asian -> Asian
+  region      String
+  macroRegion String
+
+  dishes  DishCuisine[]
+  ratings Rating[]
+}
+
+/// Canonical dish from the curated list — shared across restaurants so the
+/// same dish can be compared between places.
+model Dish {
+  id            String     @id @default(cuid())
+  slug          String     @unique
+  name          String
+  status        DishStatus @default(APPROVED)
+  requestedById String?
+  mergedIntoId  String?
+  // Variant -> root parent (Pizza Margherita -> Pizza) so ratings can roll up.
+  // Not the same as mergedIntoId, which marks duplicates an admin merged away.
+  parentId      String?
+  category      String?
+  // Alternative and native-language names, for search
+  otherNames    String[]   @default([])
+  ingredients   String[]   @default([])
+  // London review mentions from the catalogue import; orders search results
+  popularity    Int        @default(0)
+  createdAt     DateTime   @default(now())
+
+  cuisines    DishCuisine[]
+  requestedBy User?      @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  mergedInto  Dish?      @relation("DishMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom  Dish[]     @relation("DishMerge")
+  parent      Dish?      @relation("DishVariants", fields: [parentId], references: [id], onDelete: SetNull)
+  variants    Dish[]     @relation("DishVariants")
+  menuItems   MenuItem[]
+
+  @@index([status])
+  @@index([parentId])
+  @@index([popularity])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Dish_name_trgm_idx")
+}
+
+/// A dish belongs to one or more cuisines, all equal — there's no primary.
+/// Hummus is Middle Eastern, North African and Turkish.
+model DishCuisine {
+  dishId    String
+  cuisineId String
+
+  dish    Dish    @relation(fields: [dishId], references: [id], onDelete: Cascade)
+  cuisine Cuisine @relation(fields: [cuisineId], references: [id])
+
+  @@id([dishId, cuisineId])
+  @@index([cuisineId])
+}
+
+/// A dish as a specific restaurant serves it. Ratings group here, so two
+/// differently-named ramens at one restaurant are rated separately.
+model MenuItem {
+  id              String   @id @default(cuid())
+  restaurantId    String
+  dishId          String
+  alias           String?
+  // '' when there's no alias, so the unique constraint still dedupes
+  normalizedAlias String   @default("")
+  createdById     String?
+  createdAt       DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+  dish       Dish       @relation(fields: [dishId], references: [id])
+  createdBy  User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  ratings    Rating[]
+
+  @@unique([restaurantId, dishId, normalizedAlias])
+  @@index([dishId])
+}
+
+/// One logged visit. Every visit is a new row; stats use each user's latest.
+model Rating {
+  id         String   @id @default(cuid())
+  userId     String
+  menuItemId String
+  // 1–5: Skip, Fine, Good, Must-order, Life-changing (CHECK constraint in migration)
+  tier       Int
+  visitedAt  DateTime @db.Date
+  // Optional, the logger's call for this visit. Any cuisine is valid: the UI
+  // suggests the dish's cuisines and an "Other" option unlocks the rest.
+  cuisineId  String?
+  photoPath  String?
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+  cuisine  Cuisine? @relation(fields: [cuisineId], references: [id], onDelete: SetNull)
+
+  @@index([menuItemId, userId, visitedAt])
+  @@index([userId, visitedAt])
+  @@index([cuisineId])
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  targetType ReportTarget
+  targetId   String
+  reason     String
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+
+  reporter User @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model MissingPlaceReport {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  address    String?
+  note       String?
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

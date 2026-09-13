@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: tastecult
+      POSTGRES_PASSWORD: tastecult
+      POSTGRES_DB: tastecult
+    ports:
+      # Non-default host port so it doesn't clash with other local Postgres instances
+      - '54329:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Creates the separate test database on first boot
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tastecult']
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:

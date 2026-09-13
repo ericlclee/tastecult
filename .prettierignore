@@ -1,0 +1,10 @@
+node_modules
+dist
+.turbo
+coverage
+pnpm-lock.yaml
+packages/db/src/generated
+packages/db/prisma/migrations
+
+# Hand-maintained docs — don't reformat
+CLAUDE.md

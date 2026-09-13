@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+  - scripts/*
+
+# Prisma engines need their postinstall scripts
+onlyBuiltDependencies:
+  - prisma
+  - '@prisma/engines'
+  - esbuild

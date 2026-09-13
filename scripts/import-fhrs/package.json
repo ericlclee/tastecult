@@ -1,0 +1,17 @@
+{
+  "name": "@tastecult/import-fhrs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tastecult/db": "workspace:*",
+    "dotenv": "17.4.2",
+    "zod": "4.6.4"
+  }
+}

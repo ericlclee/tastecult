@@ -1,0 +1,41 @@
+name: Import FHRS restaurants
+
+on:
+  schedule:
+    # Mondays 04:00 UTC — FHRS publishes updates daily, weekly is plenty for the MVP
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+    inputs:
+      authority:
+        description: 'Optional: import a single London authority (name or FHRS id)'
+        required: false
+
+concurrency:
+  group: import-fhrs
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @tastecult/db db:generate
+      - name: Run import
+        env:
+          # Passed via env, not interpolated into the script, to avoid shell injection
+          AUTHORITY: ${{ inputs.authority }}
+        run: |
+          if [ -n "$AUTHORITY" ]; then
+            pnpm --filter @tastecult/import-fhrs start --authority "$AUTHORITY"
+          else
+            pnpm --filter @tastecult/import-fhrs start
+          fi
