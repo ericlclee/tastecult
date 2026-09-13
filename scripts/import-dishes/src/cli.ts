@@ -3,9 +3,9 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { getPrisma } from '@tastecult/db';
 import { config as loadEnv } from 'dotenv';
-import { importCatalogue } from './import.js';
-import { parseDishesCsv, parseLondonMentions } from './source.js';
-import { buildCatalogue } from './transform.js';
+import { importCatalogue } from './import';
+import { parseDishesCsv, parseLondonMentions } from './source';
+import { buildCatalogue } from './transform';
 
 // Local runs read the monorepo .env; elsewhere the env vars are set directly.
 loadEnv({ path: path.resolve(import.meta.dirname, '../../../.env'), quiet: true });

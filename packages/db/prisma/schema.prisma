@@ -5,6 +5,9 @@ generator client {
   provider     = "prisma-client"
   output       = "../src/generated/prisma"
   moduleFormat = "esm"
+  // Extensionless imports inside the generated client, so Next.js (Turbopack)
+  // can bundle it — it can't resolve "./file.js" to file.ts
+  importFileExtension = ""
 }
 
 datasource db {

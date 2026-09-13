@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mentions, sourceRow } from './test-fixtures.js';
-import { buildCatalogue } from './transform.js';
+import { mentions, sourceRow } from './test-fixtures';
+import { buildCatalogue } from './transform';
 
 const dishBySlug = (catalogue: ReturnType<typeof buildCatalogue>, slug: string) =>
   catalogue.dishes.find((d) => d.slug === slug);

@@ -1,8 +1,8 @@
 import { createTestPrismaClient, resetDatabase } from '@tastecult/db/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { importCatalogue } from './import.js';
-import { mentions, sourceRow } from './test-fixtures.js';
-import { buildCatalogue } from './transform.js';
+import { importCatalogue } from './import';
+import { mentions, sourceRow } from './test-fixtures';
+import { buildCatalogue } from './transform';
 
 const prisma = createTestPrismaClient();
 

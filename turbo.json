@@ -3,12 +3,17 @@
   "globalPassThroughEnv": ["DATABASE_URL", "TEST_DATABASE_URL"],
   "tasks": {
     "db:generate": {
+      // Chains through packages without the script, so apps that only reach
+      // @tastecult/db transitively (web -> api-client -> api -> db) still generate first
+      "dependsOn": ["^db:generate"],
       "inputs": ["prisma/schema.prisma"],
       "outputs": ["src/generated/**"]
     },
     "build": {
-      "dependsOn": ["^build", "db:generate"],
-      "outputs": ["dist/**"]
+      "dependsOn": ["^build", "^db:generate", "db:generate"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
+      // Baked into the web app's rewrites at build time, so it must be part of the cache key
+      "env": ["API_URL"]
     },
     "typecheck": {
       "dependsOn": ["^db:generate", "db:generate"]

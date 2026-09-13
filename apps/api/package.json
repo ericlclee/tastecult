@@ -1,0 +1,31 @@
+{
+  "name": "@tastecult/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/router.ts"
+  },
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src app",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tastecult/db": "workspace:*",
+    "@tastecult/shared-types": "workspace:*",
+    "@trpc/server": "11.18.0",
+    "dotenv": "17.4.2",
+    "next": "16.3.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "superjson": "2.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0"
+  }
+}

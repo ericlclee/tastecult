@@ -1,8 +1,8 @@
 import { createTestPrismaClient, resetDatabase } from '@tastecult/db/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import type { EstablishmentsResult, FhrsAuthority, FhrsClient } from './fhrs-client.js';
-import { runImport, selectLondonAuthorities } from './import.js';
-import { feed, makeAuthority, makeEstablishment } from './test-fixtures.js';
+import type { EstablishmentsResult, FhrsAuthority, FhrsClient } from './fhrs-client';
+import { runImport, selectLondonAuthorities } from './import';
+import { feed, makeAuthority, makeEstablishment } from './test-fixtures';
 
 const prisma = createTestPrismaClient();
 const silent = () => undefined;

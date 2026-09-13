@@ -1,5 +1,5 @@
 import { slugify } from '@tastecult/shared-types';
-import type { SourceRow } from './source.js';
+import type { SourceRow } from './source';
 
 export interface CuisineRecord {
   slug: string;

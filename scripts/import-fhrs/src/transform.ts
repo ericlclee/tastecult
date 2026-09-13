@@ -1,4 +1,4 @@
-import type { FhrsEstablishment } from './fhrs-client.js';
+import type { FhrsEstablishment } from './fhrs-client';
 
 /**
  * FHRS business types where people eat dishes. "Other catering premises"

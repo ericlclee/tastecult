@@ -1,4 +1,4 @@
-import type { SourceRow } from './source.js';
+import type { SourceRow } from './source';
 
 /** A dishes_enriched.csv row; defaults describe a top-level Middle Eastern dish. */
 export function sourceRow(

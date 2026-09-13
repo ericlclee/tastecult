@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@tastecult/db';
-import { LONDON_REGION_NAME, type FhrsAuthority, type FhrsClient } from './fhrs-client.js';
-import { toRestaurantRecord, type RestaurantRecord } from './transform.js';
+import { LONDON_REGION_NAME, type FhrsAuthority, type FhrsClient } from './fhrs-client';
+import { toRestaurantRecord, type RestaurantRecord } from './transform';
 
 const UPSERT_BATCH_SIZE = 1000;
 

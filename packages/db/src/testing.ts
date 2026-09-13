@@ -1,4 +1,4 @@
-import { createPrismaClient, type PrismaClient } from './index.js';
+import { createPrismaClient, type PrismaClient } from './index';
 
 /**
  * Client for integration tests. Refuses anything that doesn't look like a test

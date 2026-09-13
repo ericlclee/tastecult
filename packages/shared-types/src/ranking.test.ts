@@ -5,7 +5,7 @@ import {
   latestLogPerUser,
   tierDistribution,
   type LogForAggregation,
-} from './ranking.js';
+} from './ranking';
 
 const log = (
   userId: string,

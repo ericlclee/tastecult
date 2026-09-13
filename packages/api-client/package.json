@@ -1,0 +1,19 @@
+{
+  "name": "@tastecult/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@tastecult/api": "workspace:*",
+    "@trpc/client": "11.18.0",
+    "@trpc/server": "11.18.0",
+    "superjson": "2.2.6"
+  }
+}

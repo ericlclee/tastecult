@@ -2,8 +2,8 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { getPrisma } from '@tastecult/db';
 import { config as loadEnv } from 'dotenv';
-import { createFhrsClient } from './fhrs-client.js';
-import { runImport } from './import.js';
+import { createFhrsClient } from './fhrs-client';
+import { runImport } from './import';
 
 // Local runs read the monorepo .env; in CI the env vars are set directly.
 loadEnv({ path: path.resolve(import.meta.dirname, '../../../.env'), quiet: true });

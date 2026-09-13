@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { tierSchema } from './tiers.js';
+import { tierSchema } from './tiers';
 
 export const idSchema = z.string().min(1).max(64);
 
@@ -43,4 +43,27 @@ export const radiusKmSchema = z.number().positive().max(50).default(2);
 export const cursorPageInput = z.object({
   cursor: idSchema.nullish(),
   limit: z.number().int().min(1).max(100).default(20),
+});
+
+export const byIdInput = z.object({ id: idSchema });
+
+/** Free-text search; two characters minimum so one keystroke doesn't scan every row. */
+export const searchQuerySchema = z.string().trim().min(2).max(100);
+
+export const restaurantSearchInput = z.object({
+  q: searchQuerySchema,
+  /** When given, results include distance and nearer restaurants win ties. */
+  near: coordinatesSchema.optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
+export const restaurantNearbyInput = coordinatesSchema.extend({
+  radiusKm: radiusKmSchema,
+  limit: z.number().int().min(1).max(100).default(50),
+});
+
+export const dishSearchInput = z.object({
+  q: searchQuerySchema,
+  cuisineId: idSchema.optional(),
+  limit: z.number().int().min(1).max(50).default(20),
 });

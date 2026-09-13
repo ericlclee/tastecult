@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanAlias, normalizeAlias, slugify } from './normalize.js';
+import { cleanAlias, normalizeAlias, slugify } from './normalize';
 
 describe('normalizeAlias', () => {
   it('treats casing and whitespace variants as the same alias', () => {

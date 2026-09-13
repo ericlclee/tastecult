@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { makeEstablishment } from './test-fixtures.js';
-import { toRestaurantRecord } from './transform.js';
+import { makeEstablishment } from './test-fixtures';
+import { toRestaurantRecord } from './transform';
 
 describe('toRestaurantRecord', () => {
   it('maps a restaurant establishment', () => {

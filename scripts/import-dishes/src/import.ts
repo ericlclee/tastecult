@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@tastecult/db';
-import type { Catalogue } from './transform.js';
+import type { Catalogue } from './transform';
 
 const BATCH_SIZE = 1000;
 

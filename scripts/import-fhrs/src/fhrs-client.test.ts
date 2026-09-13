@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createFhrsClient, FhrsApiError } from './fhrs-client.js';
-import { makeEstablishment } from './test-fixtures.js';
+import { createFhrsClient, FhrsApiError } from './fhrs-client';
+import { makeEstablishment } from './test-fixtures';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });

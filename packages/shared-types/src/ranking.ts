@@ -1,4 +1,4 @@
-import { GOOD_TIER, TIERS, type Tier } from './tiers.js';
+import { GOOD_TIER, TIERS, type Tier } from './tiers';
 
 export interface LogForAggregation {
   userId: string;

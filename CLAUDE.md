@@ -6,7 +6,7 @@
 
 **What this project is:** A food journal and social network built around rating individual _dishes_ (not just restaurants) — users log dishes they've eaten, rate/review them, and follow others to discover well-rated dishes near them.
 
-**Current stage:** Backend MVP in progress — **backend only for now**; web/mobile frontends are deferred and the user will decide their design. **Mobile is the main product, but the web app comes first as the surface for demos and design iteration** — so the API must serve browser clients well from the start, not only mobile. Done: monorepo scaffold + CI, Prisma schema and initial migration, shared tier/ranking logic, FHRS London restaurant import (~51k restaurants), TasteAtlas dish catalogue import (9,980 dishes, 42 cuisines). Next: tRPC API in `/apps/api`, starting with restaurant and dish search.
+**Current stage:** Backend MVP in progress — **backend first**; the user designs the frontends themselves, so `/apps/web` is a deliberately blank Next.js shell wired to the API and mobile hasn't started. **Mobile is the main product, but the web app comes first as the surface for demos and design iteration** — so the API must serve browser clients well from the start, not only mobile. Done: monorepo scaffold + CI, Prisma schema and initial migration, shared tier/ranking logic, FHRS London restaurant import (~51k restaurants), TasteAtlas dish catalogue import (9,980 dishes, 42 cuisines). Also built: the tRPC API (`/apps/api`) with its first public endpoints — `health`, `cuisine.list`, `restaurant.search`/`nearby`/`byId`, `dish.search`/`byId` — plus the typed client (`/packages/api-client`) and the blank web shell. Next: Supabase sign-in, then logging.
 
 **Core architecture (one paragraph):**
 A TypeScript monorepo sharing types and business logic between a Next.js web app and a React Native (Expo) mobile app, both talking to a single Node/TypeScript API backed by Postgres. The dish is the primary entity — restaurants, users, and ratings all attach to it — which is the main structural thing that differs from typical restaurant-review apps.
@@ -24,7 +24,7 @@ A TypeScript monorepo sharing types and business logic between a Next.js web app
 | Image/file storage          | **Supabase Storage**                                       | Used for dish photos and any user-uploaded images. Upload flow: clients upload direct-to-bucket using signed upload URLs issued by the API, so photos never hit Vercel serverless body limits.                                                                                                 |
 | State management            | **TanStack Query (React Query)**                           | Pairs naturally with tRPC for server state on both web and mobile; use plain React state/context for local UI state. Add a dedicated client-state library (e.g. Zustand) only if cross-component client state actually gets unwieldy — don't add it preemptively. |
 | Styling / cross-platform UI | **Tamagui**                                                | Purpose-built for sharing a single styling API between Next.js and React Native/Expo, which is a better fit here than `react-native-web` + separate CSS given the shared `/packages/ui` goal.                                                                     |
-| Hosting                     | **Vercel** (web + api), **EAS** (mobile)                   | See note in Directory Structure below — since only Vercel was chosen (no separate backend host), the api is colocated with the web app rather than deployed as a standalone service.                                                                              |
+| Hosting                     | **Vercel** (web + api), **EAS** (mobile)                   | See note in Directory Structure below — `/apps/api` and `/apps/web` are **separate Vercel projects** (decided with the user), so the API deploys independently of frontend changes and serves web and mobile alike. The API uses Next.js route handlers purely as its server — it has no pages.                                                                              |
 | Monorepo tooling            | Turborepo                                                  | Manages shared packages (types, UI primitives, API client) across web/mobile/backend                                                                                                                                                                              |
 | Testing                     | Vitest (unit), Playwright (web e2e)                        | TBD: mobile e2e approach (Detox vs manual for now)                                                                                                                                                                                                                |
 
@@ -43,14 +43,14 @@ Don't introduce a new library, framework, or pattern to solve a problem an exist
 
 ```
 /apps
-  /web          — Next.js app (public pages, web app shell)             [not started — frontend deferred]
+  /web          — Next.js app; currently a blank shell wired to the API (the user designs the UI)
   /mobile       — Expo/React Native app                                  [not started — frontend deferred]
-  /api          — Node/TypeScript backend (tRPC routers, business logic) [not started — next]
+  /api          — tRPC API (src/routers), served by one Next.js route handler at app/api/trpc/[trpc]
 /packages
   /db           — Prisma schema, migrations, client (@tastecult/db) and test helpers (@tastecult/db/testing)
   /shared-types — Tier scale, alias normalization, latest-log aggregation, Bayesian ranking, zod input schemas
   /ui           — Cross-platform UI primitives, built with Tamagui       [not started — frontend deferred]
-  /api-client   — Typed client wrapping tRPC calls, used by both web and mobile [not started]
+  /api-client   — Typed tRPC client plus RouterInputs/RouterOutputs types, for web and mobile
 /scripts
   /import-fhrs  — FHRS London restaurant import (CLI; scheduled weekly in GitHub Actions)
   /import-dishes — TasteAtlas dish + cuisine catalogue import (CLI; run manually)
@@ -129,7 +129,11 @@ pnpm lint
 pnpm typecheck
 pnpm test              # packages run one at a time; DB integration tests need Postgres (pnpm db:up)
 
-# Not built yet: backend dev server (/apps/api), web, mobile
+# API + web (run both; the web app proxies /api/trpc to the API)
+pnpm --filter @tastecult/api dev   # http://localhost:3001/api/trpc
+pnpm --filter @tastecult/web dev   # http://localhost:3000 (API_URL changes the proxy target)
+
+# Not built yet: mobile
 ```
 
 Always run tests and lint/typecheck before considering a task done. If a command fails, fix it or report the failure — don't work around it or skip it silently.
@@ -171,6 +175,8 @@ For any non-trivial task:
 - **Local Postgres runs on port 54329**, not 5432 (5432 was already taken on the dev machine). CI uses 5432.
 - **Prisma 7 doesn't auto-load `.env`.** `packages/db/prisma.config.ts` and the import CLI load the root `.env` explicitly. The generated client lives in `packages/db/src/generated/` (gitignored — run `db:generate`).
 - **Turbo runs tasks in strict env mode:** a task only receives the environment variables listed in `turbo.json`. `DATABASE_URL` and `TEST_DATABASE_URL` are in `globalPassThroughEnv`. Any new variable a task needs must be added there (or to that task's `env`), or it will work locally — where `.env` is read straight from disk — and fail in CI, which has no `.env`.
+- **Relative imports are extensionless** (`from './tiers'`, not `'./tiers.js'`), with `moduleResolution: Bundler` in every tsconfig and Prisma generating an extensionless client (`importFileExtension = ""`). Next.js's bundler (Turbopack) can't resolve `./file.js` to `file.ts`, and all Node-run code goes through tsx or Vitest, which handle extensionless imports.
+- **The web app proxies `/api/trpc/*` to `API_URL`** (default `http://localhost:3001`) with a Next.js rewrite, so browsers never call the API cross-origin and the API needs no CORS setup. The rewrite is fixed at build time: set `API_URL` in the web project's build environment on Vercel, and keep it in the Turbo `build` task's `env` so a change rebuilds instead of hitting the cache.
 - **Hand-edited migration SQL:** the `pg_trgm` extension and the `Rating_tier_check` CHECK constraint are in the init migration SQL because `schema.prisma` can't express them. Keep them intact if a future migration recreates those objects.
 - **`prisma migrate dev` refuses data-loss changes in non-interactive shells** (e.g. dropping a populated column). Workaround: `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`, save the output as `prisma/migrations/<timestamp>_<name>/migration.sql`, add any data backfill before the destructive statements (see `20260913230000_dish_cuisines`), then apply with `db:deploy`.
 - **Integration tests wipe the database.** `resetDatabase()` truncates every table; `createTestPrismaClient()` refuses any URL whose database name doesn't contain "test". Test files within a package run serially (`fileParallelism: false`), and `pnpm test` runs packages one at a time (`--concurrency=1`) because all packages share the one test database — running them in parallel makes tests flaky.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createRatingInput } from './schemas.js';
-import { isTier, tierLabel, tierSchema } from './tiers.js';
+import { createRatingInput } from './schemas';
+import { isTier, tierLabel, tierSchema } from './tiers';
 
 describe('tiers', () => {
   it('accepts 1–5 and rejects anything else', () => {

@@ -1,4 +1,4 @@
-import type { EstablishmentsResult, FhrsAuthority, FhrsEstablishment } from './fhrs-client.js';
+import type { EstablishmentsResult, FhrsAuthority, FhrsEstablishment } from './fhrs-client';
 
 // Shape taken from a real FHRS API response (Dishoom, Hammersmith and Fulham).
 export function makeEstablishment(overrides: Partial<FhrsEstablishment> = {}): FhrsEstablishment {

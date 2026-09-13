@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseDishesCsv, parseLondonMentions } from './source.js';
+import { parseDishesCsv, parseLondonMentions } from './source';
 
 const HEADER =
   'dish_id,dish,url,group_of,is_group_head,cuisine,cuisine_region,cuisine_macro,category,other_names,ingredients,score,description';
