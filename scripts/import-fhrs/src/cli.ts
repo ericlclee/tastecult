@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { getPrisma } from '@tastecult/db';
+import { createPrismaClient, directDatabaseUrl } from '@tastecult/db';
 import { config as loadEnv } from 'dotenv';
 import { createFhrsClient } from './fhrs-client';
 import { runImport } from './import';
@@ -16,7 +16,7 @@ const { values } = parseArgs({
 });
 
 const dryRun = values['dry-run'] ?? false;
-const prisma = dryRun ? undefined : getPrisma();
+const prisma = dryRun ? undefined : createPrismaClient(directDatabaseUrl());
 const startedAt = Date.now();
 
 try {
