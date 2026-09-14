@@ -78,3 +78,17 @@ export const dishRequestInput = z.object({
   name: z.string().trim().min(2).max(80),
   cuisineId: idSchema,
 });
+
+/** Logs on a restaurant page. Signed-out visitors only ever get a short preview. */
+export const restaurantLogsInput = z.object({
+  restaurantId: idSchema,
+  cursor: idSchema.nullish(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
+/** Logs on a dish page, including the dish's variants. */
+export const dishLogsInput = z.object({
+  dishId: idSchema,
+  cursor: idSchema.nullish(),
+  limit: z.number().int().min(1).max(50).default(20),
+});

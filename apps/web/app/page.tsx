@@ -21,8 +21,8 @@ export default function Home() {
     <main>
       <h1>TasteCult</h1>
       <p>
-        <Link href="/log">Log a dish</Link> · <Link href="/me">My logs</Link> ·{' '}
-        <Link href="/sign-in">Sign in</Link>
+        <Link href="/explore">Explore</Link> · <Link href="/log">Log a dish</Link> ·{' '}
+        <Link href="/me">My logs</Link> · <Link href="/sign-in">Sign in</Link>
       </p>
       <p>
         API:{' '}
