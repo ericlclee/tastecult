@@ -21,9 +21,6 @@ export default function DishPage() {
   if (dish.isError) {
     return (
       <main>
-        <p>
-          <Link href="/explore">Explore</Link>
-        </p>
         <p role="alert">
           {dish.error.data?.code === 'NOT_FOUND'
             ? "This dish doesn't exist."
@@ -45,9 +42,6 @@ export default function DishPage() {
 
   return (
     <main>
-      <p>
-        <Link href="/explore">Explore</Link> · <Link href="/log">Log a dish</Link>
-      </p>
       <h1>{d.name}</h1>
       <p>
         {d.cuisines.map((c) => c.name).join(', ') || 'No cuisine listed'}

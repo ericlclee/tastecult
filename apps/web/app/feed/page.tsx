@@ -18,13 +18,6 @@ export default function FeedPage() {
     ),
   );
 
-  const nav = (
-    <p>
-      <Link href="/explore">Explore</Link> · <Link href="/log">Log a dish</Link> ·{' '}
-      <Link href="/me">My logs</Link>
-    </p>
-  );
-
   if (!ready || (session && !me.data && !me.isError)) {
     return (
       <main>
@@ -57,7 +50,6 @@ export default function FeedPage() {
     return (
       <main>
         <h1>Feed</h1>
-        {nav}
         <p>
           <Link href="/log">Choose a username</Link> to start following people.
         </p>
@@ -68,7 +60,6 @@ export default function FeedPage() {
   return (
     <main>
       <h1>Feed</h1>
-      {nav}
       <LogFeed
         pages={feed.data?.pages}
         status={feed.status}

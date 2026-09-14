@@ -1,7 +1,6 @@
 'use client';
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTRPC } from '../../../trpc';
 import { LogFeed } from '../../../log-feed';
@@ -21,9 +20,6 @@ export default function RestaurantPage() {
   if (restaurant.isError) {
     return (
       <main>
-        <p>
-          <Link href="/explore">Explore</Link>
-        </p>
         <p role="alert">
           {restaurant.error.data?.code === 'NOT_FOUND'
             ? "This restaurant doesn't exist."
@@ -45,9 +41,6 @@ export default function RestaurantPage() {
 
   return (
     <main>
-      <p>
-        <Link href="/explore">Explore</Link> · <Link href="/log">Log a dish</Link>
-      </p>
       <h1>{place.name}</h1>
       <p>{[place.address, place.postcode].filter(Boolean).join(', ') || 'No address listed'}</p>
       <p>

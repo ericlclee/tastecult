@@ -13,6 +13,10 @@ const apiOrigin = normalizeApiUrl(process.env.API_URL ?? 'http://localhost:3001'
 const nextConfig: NextConfig = {
   // Workspace packages ship TypeScript source rather than built JavaScript
   transpilePackages: ['@tastecult/api-client', '@tastecult/shared-types'],
+  // There's no home page: Explore is where people start
+  async redirects() {
+    return [{ source: '/', destination: '/explore', permanent: false }];
+  },
   async rewrites() {
     return [{ source: '/api/trpc/:path*', destination: `${apiOrigin}/api/trpc/:path*` }];
   },

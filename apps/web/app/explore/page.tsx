@@ -20,10 +20,6 @@ export default function ExplorePage() {
   return (
     <main>
       <h1>Explore</h1>
-      <p>
-        <Link href="/">Home</Link> · <Link href="/log">Log a dish</Link> ·{' '}
-        <Link href="/me">My logs</Link>
-      </p>
 
       <p>
         <label htmlFor="explore-search">Search restaurants and dishes</label>{' '}

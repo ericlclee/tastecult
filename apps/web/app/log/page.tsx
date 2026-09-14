@@ -207,9 +207,6 @@ function LogForm({ onLogAnother }: { onLogAnother: () => void }) {
   return (
     <main>
       <h1>Log a dish</h1>
-      <p>
-        <Link href="/me">My logs</Link> · <Link href="/">Home</Link>
-      </p>
 
       <form onSubmit={(event) => void save(event)}>
         <fieldset>

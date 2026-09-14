@@ -26,9 +26,6 @@ export default function ProfilePage() {
   if (profile.isError) {
     return (
       <main>
-        <p>
-          <Link href="/explore">Explore</Link>
-        </p>
         <p role="alert">
           {profile.error.data?.code === 'NOT_FOUND'
             ? 'No one has that username.'
@@ -73,9 +70,6 @@ export default function ProfilePage() {
 
   return (
     <main>
-      <p>
-        <Link href="/feed">Feed</Link> · <Link href="/explore">Explore</Link>
-      </p>
       <h1>{person.displayName ?? person.username}</h1>
       <p>
         @{person.username} · joined{' '}

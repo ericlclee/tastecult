@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState, type FormEvent } from 'react';
 import { useSession } from '../session';
 import { getSupabase, isSupabaseConfigured } from '../supabase';
@@ -58,9 +57,6 @@ export default function SignInPage() {
       <main>
         <h1>Signed in</h1>
         <p>You&apos;re signed in as {session.user.email}.</p>
-        <p>
-          <Link href="/log">Log a dish</Link> · <Link href="/me">My logs</Link>
-        </p>
         <button type="button" onClick={() => void signOut()}>
           Sign out
         </button>
@@ -94,9 +90,6 @@ export default function SignInPage() {
         </form>
       )}
       {error ? <p role="alert">Couldn&apos;t send the link: {error}</p> : null}
-      <p>
-        <Link href="/">Home</Link>
-      </p>
     </main>
   );
 }
