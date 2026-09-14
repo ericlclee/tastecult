@@ -123,6 +123,11 @@ pnpm --filter @tastecult/import-dishes start \
   --dishes /Users/eric/Projects/apalate/data/processed/dishes_enriched.csv \
   --mentions /Users/eric/Projects/apalate/data/raw/tasteatlas/cache_mentions.json
 
+# Demo data — LOCAL database only: 25 mock people, ~390 logs, follows, placeholder photos
+pnpm --filter @tastecult/seed-demo start               # replace demo data with a fresh set
+pnpm --filter @tastecult/seed-demo start --reset       # remove all demo data
+pnpm --filter @tastecult/seed-demo start --no-photos   # seed without uploading photos
+
 # Checks (all run in CI)
 pnpm format:check      # pnpm format to fix
 pnpm lint
@@ -182,6 +187,7 @@ For any non-trivial task:
 - **Three levels of API access** in `apps/api/src/trpc.ts`: `publicProcedure` (anyone), `authedProcedure` (a verified Supabase session) and `profileProcedure` (a session *and* a `User` row — fails with `PRECONDITION_FAILED` until the person picks a username). Anything that writes per-user data uses `profileProcedure`.
 - **Supabase environment variables.** API: `SUPABASE_URL` and `SUPABASE_SECRET_KEY` (or the legacy `SUPABASE_SERVICE_ROLE_KEY`), plus `SUPABASE_JWT_SECRET` only on older projects. Web: `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, which are baked into the browser bundle at build time and therefore listed in the Turbo `build` task's `env`. Missing values don't break the API: public endpoints still work, every request reads as signed out, and photo uploads return a clear "not configured" error. Blank lines in `.env` count as unset.
 - **Visit dates are London calendar dates** (`londonDateString` in shared-types), not UTC — a late dinner during British Summer Time is still logged on the day it happened.
+- **Demo data is recognisable by design.** Mock people's ids start with `d0000000-0000-4000-8000-` and their placeholder photos live under `demo/` in the `dish-photos` bucket. `scripts/seed-demo` only removes rows and files matching those, refuses to run unless `DATABASE_URL` points at localhost, and never touches real accounts' own logs — it only adds follows between them and demo people. The plan is deterministic (fixed seed), so re-seeding gives the same people, venues and ratings.
 - **Hand-edited migration SQL:** the `pg_trgm` extension and the `Rating_tier_check` CHECK constraint are in the init migration SQL because `schema.prisma` can't express them. Keep them intact if a future migration recreates those objects.
 - **`prisma migrate dev` refuses data-loss changes in non-interactive shells** (e.g. dropping a populated column). Workaround: `prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script`, save the output as `prisma/migrations/<timestamp>_<name>/migration.sql`, add any data backfill before the destructive statements (see `20260913230000_dish_cuisines`), then apply with `db:deploy`.
 - **Integration tests wipe the database.** `resetDatabase()` truncates every table; `createTestPrismaClient()` refuses any URL whose database name doesn't contain "test". Test files within a package run serially (`fileParallelism: false`), and `pnpm test` runs packages one at a time (`--concurrency=1`) because all packages share the one test database — running them in parallel makes tests flaky.
