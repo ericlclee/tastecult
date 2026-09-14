@@ -86,6 +86,18 @@ export const restaurantLogsInput = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+/** Usernames in URLs and lookups match regardless of capitalisation. */
+export const usernameLookupSchema = z.string().trim().toLowerCase().pipe(usernameSchema);
+
+export const usernameInput = z.object({ username: usernameLookupSchema });
+
+/** A page of a person's logs, followers or following. */
+export const userPageInput = z.object({
+  username: usernameLookupSchema,
+  cursor: idSchema.nullish(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 /** Logs on a dish page, including the dish's variants. */
 export const dishLogsInput = z.object({
   dishId: idSchema,

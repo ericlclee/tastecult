@@ -3,21 +3,30 @@
 import type { RouterOutputs } from '@tastecult/api-client';
 import { isTier, tierLabel, TIERS } from '@tastecult/shared-types';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
-type LogsPage = RouterOutputs['rating']['forDish'];
+type LogItem = RouterOutputs['rating']['forDish']['items'][number];
+type LogSummary = RouterOutputs['rating']['forDish']['summary'];
+
+export interface LogFeedPage {
+  items: LogItem[];
+  summary?: LogSummary;
+  limited?: boolean;
+}
 
 interface LogFeedProps {
-  pages: LogsPage[] | undefined;
+  pages: LogFeedPage[] | undefined;
   status: 'pending' | 'error' | 'success';
   error: string | null;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   onLoadMore: () => void;
-  /** Which page the feed sits on, so each log links to the *other* side. */
-  on: 'restaurant' | 'dish';
+  /** The page the feed sits on, so its own subject isn't repeated and linked on every log. */
+  on: 'restaurant' | 'dish' | 'user' | 'feed';
+  emptyMessage?: ReactNode;
 }
 
-// Unstyled on purpose — shared by the restaurant and dish pages.
+// Unstyled on purpose — shared by explore pages, profiles and the feed.
 export function LogFeed({
   pages,
   status,
@@ -26,6 +35,7 @@ export function LogFeed({
   isFetchingNextPage,
   onLoadMore,
   on,
+  emptyMessage,
 }: LogFeedProps) {
   if (status === 'pending') return <p>Loading logs…</p>;
   if (status === 'error' || !pages?.[0]) {
@@ -39,13 +49,13 @@ export function LogFeed({
     <section>
       <h2>Logs</h2>
 
-      {summary.logCount === 0 ? (
-        <p>No logs yet.</p>
-      ) : (
+      {summary && summary.logCount > 0 ? (
         <>
           <p>
-            {summary.logCount} {summary.logCount === 1 ? 'log' : 'logs'} from {summary.peopleCount}{' '}
-            {summary.peopleCount === 1 ? 'person' : 'people'}
+            {summary.logCount} {summary.logCount === 1 ? 'log' : 'logs'}
+            {on === 'user'
+              ? ''
+              : ` from ${summary.peopleCount} ${summary.peopleCount === 1 ? 'person' : 'people'}`}
           </p>
           <ul>
             {[...TIERS].reverse().map((tier) => (
@@ -56,41 +66,46 @@ export function LogFeed({
           </ul>
           <p>The breakdown counts each person&apos;s latest log of each menu item.</p>
         </>
-      )}
+      ) : null}
+
+      {items.length === 0 ? <p>{emptyMessage ?? 'No logs yet.'}</p> : null}
 
       <ul>
         {items.map((log) => {
-          const dishName = log.menuItem.alias ?? log.menuItem.dish.name;
+          const { dish, restaurant, alias } = log.menuItem;
+          const dishName = alias ?? dish.name;
           return (
             <li key={log.id}>
               {log.photoUrl ? (
-                <img
-                  src={log.photoUrl}
-                  alt={`${dishName} at ${log.menuItem.restaurant.name}`}
-                  width={240}
-                />
+                <img src={log.photoUrl} alt={`${dishName} at ${restaurant.name}`} width={240} />
               ) : null}
               <p>
-                <strong>{dishName}</strong>
-                {log.menuItem.alias ? ` (${log.menuItem.dish.name})` : ''}
-                {on === 'dish' ? (
+                <strong>
+                  {on === 'dish' ? (
+                    dishName
+                  ) : (
+                    <Link href={`/explore/dish/${dish.id}`}>{dishName}</Link>
+                  )}
+                </strong>
+                {alias ? ` (${dish.name})` : ''}
+                {on === 'restaurant' ? null : (
                   <>
                     {' '}
-                    at{' '}
-                    <Link href={`/explore/restaurant/${log.menuItem.restaurant.id}`}>
-                      {log.menuItem.restaurant.name}
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    {' '}
-                    · <Link href={`/explore/dish/${log.menuItem.dish.id}`}>see this dish</Link>
+                    at <Link href={`/explore/restaurant/${restaurant.id}`}>{restaurant.name}</Link>
                   </>
                 )}
               </p>
               <p>
-                {isTier(log.tier) ? tierLabel(log.tier) : log.tier} · {log.visitedAt} · by{' '}
-                {log.user.displayName ?? log.user.username}
+                {isTier(log.tier) ? tierLabel(log.tier) : log.tier} · {log.visitedAt}
+                {on === 'user' ? null : (
+                  <>
+                    {' '}
+                    · by{' '}
+                    <Link href={`/u/${log.user.username}`}>
+                      {log.user.displayName ?? log.user.username}
+                    </Link>
+                  </>
+                )}
                 {log.cuisine ? ` · ${log.cuisine.name}` : ''}
               </p>
               {log.note ? <p>{log.note}</p> : null}
@@ -99,7 +114,7 @@ export function LogFeed({
         })}
       </ul>
 
-      {limited ? (
+      {limited && summary ? (
         <p>
           Showing {items.length} of {summary.logCount} logs. <Link href="/sign-in">Sign in</Link> to
           see them all.

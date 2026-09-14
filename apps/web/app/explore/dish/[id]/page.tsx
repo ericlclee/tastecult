@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTRPC } from '../../../trpc';
-import { LogFeed } from '../../log-feed';
+import { LogFeed } from '../../../log-feed';
 
 // Unstyled on purpose — a working dish page to replace with the real design.
 export default function DishPage() {

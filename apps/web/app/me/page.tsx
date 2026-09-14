@@ -54,7 +54,13 @@ export default function MyLogsPage() {
     <main>
       <h1>My logs</h1>
       <p>
-        <Link href="/log">Log a dish</Link> · <Link href="/">Home</Link>
+        <Link href="/log">Log a dish</Link> · <Link href="/feed">Feed</Link> ·{' '}
+        {me.data?.profile ? (
+          <>
+            <Link href={`/u/${me.data.profile.username}`}>Your public profile</Link> ·{' '}
+          </>
+        ) : null}
+        <Link href="/">Home</Link>
       </p>
 
       {me.isError ? <p role="alert">Couldn&apos;t load your profile: {me.error.message}</p> : null}

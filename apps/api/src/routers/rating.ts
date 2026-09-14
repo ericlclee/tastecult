@@ -10,6 +10,7 @@ import {
   normalizeAlias,
   restaurantLogsInput,
   tierDistribution,
+  userPageInput,
   type Tier,
 } from '@tastecult/shared-types';
 import { TRPCError } from '@trpc/server';
@@ -255,5 +256,38 @@ export const ratingRouter = router({
       { AND: [visibleLogs(ctx.auth), { menuItem: { dishId: { in: dishIds } } }] },
       input,
     );
+  }),
+
+  /** A person's logs on their profile, with the same preview rule as other pages. */
+  forUser: publicProcedure.input(userPageInput).query(async ({ ctx, input }) => {
+    const user = await ctx.prisma.user.findUnique({
+      where: { username: input.username },
+      select: { id: true },
+    });
+    if (!user) throw new TRPCError({ code: 'NOT_FOUND', message: 'No one has that username' });
+
+    return logsPage(ctx, { AND: [visibleLogs(ctx.auth), { userId: user.id }] }, input);
+  }),
+
+  /** Logs from people you follow, most recently logged first. Your own logs aren't included. */
+  feed: profileProcedure.input(cursorPageInput).query(async ({ ctx, input }) => {
+    const rows = await ctx.prisma.rating.findMany({
+      where: {
+        AND: [
+          visibleLogs(ctx.auth),
+          { user: { followers: { some: { followerId: ctx.user.id } } } },
+        ],
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: input.limit + 1,
+      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      select: publicLogSelect,
+    });
+    const hasMore = rows.length > input.limit;
+    const page = hasMore ? rows.slice(0, input.limit) : rows;
+    return {
+      items: page.map((row) => toRatingView(row, ctx.storage)),
+      nextCursor: hasMore ? page[page.length - 1]!.id : null,
+    };
   }),
 });
