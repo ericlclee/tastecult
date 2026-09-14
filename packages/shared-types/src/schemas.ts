@@ -67,3 +67,14 @@ export const dishSearchInput = z.object({
   cuisineId: idSchema.optional(),
   limit: z.number().int().min(1).max(50).default(20),
 });
+
+export const createProfileInput = z.object({
+  username: usernameSchema,
+  displayName: z.string().trim().min(1).max(60).nullish(),
+});
+
+/** A dish missing from the catalogue, requested while logging. */
+export const dishRequestInput = z.object({
+  name: z.string().trim().min(2).max(80),
+  cuisineId: idSchema,
+});

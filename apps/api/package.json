@@ -15,10 +15,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "2.116.0",
     "@tastecult/db": "workspace:*",
     "@tastecult/shared-types": "workspace:*",
     "@trpc/server": "11.18.0",
     "dotenv": "17.4.2",
+    "jose": "6.2.12",
     "next": "16.3.5",
     "react": "19.3.0",
     "react-dom": "19.3.0",

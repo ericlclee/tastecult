@@ -1,4 +1,10 @@
+import path from 'node:path';
+import { config as loadEnv } from 'dotenv';
 import type { NextConfig } from 'next';
+
+// Next only reads .env files from this app's folder; locally the monorepo keeps one at
+// the root. On Vercel the variables come from project settings instead.
+loadEnv({ path: path.resolve(process.cwd(), '../../.env'), quiet: true });
 
 // The API project's origin. tRPC calls are proxied through this app, so browsers only
 // ever talk to the web app's own origin and no CORS setup is needed.
@@ -6,7 +12,7 @@ const apiOrigin = normalizeApiUrl(process.env.API_URL ?? 'http://localhost:3001'
 
 const nextConfig: NextConfig = {
   // Workspace packages ship TypeScript source rather than built JavaScript
-  transpilePackages: ['@tastecult/api-client'],
+  transpilePackages: ['@tastecult/api-client', '@tastecult/shared-types'],
   async rewrites() {
     return [{ source: '/api/trpc/:path*', destination: `${apiOrigin}/api/trpc/:path*` }];
   },

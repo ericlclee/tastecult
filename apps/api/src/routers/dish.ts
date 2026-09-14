@@ -1,13 +1,21 @@
+import { randomUUID } from 'node:crypto';
 import { Prisma } from '@tastecult/db';
-import { byIdInput, dishSearchInput } from '@tastecult/shared-types';
+import { byIdInput, dishRequestInput, dishSearchInput } from '@tastecult/shared-types';
 import { TRPCError } from '@trpc/server';
+import type { Context } from '../context';
 import { escapeLike } from '../sql';
-import { publicProcedure, router } from '../trpc';
+import { profileProcedure, publicProcedure, router } from '../trpc';
 
 const MAX_VARIANTS = 50;
 
 const dishRef = { id: true, slug: true, name: true } satisfies Prisma.DishSelect;
 const cuisineRef = { id: true, slug: true, name: true } satisfies Prisma.CuisineSelect;
+
+const requestedDishSelect = {
+  ...dishRef,
+  status: true,
+  cuisines: { select: { cuisine: { select: cuisineRef } } },
+} satisfies Prisma.DishSelect;
 
 interface DishSearchRow {
   id: string;
@@ -16,15 +24,26 @@ interface DishSearchRow {
   category: string | null;
   popularity: number;
   otherNames: string[];
+  status: 'APPROVED' | 'PENDING';
 }
 
 function sortByName<T extends { name: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Approved dishes, plus pending dishes the signed-in user requested themselves. */
+function visibleDishes(auth: Context['auth']): Prisma.DishWhereInput {
+  return auth
+    ? { OR: [{ status: 'APPROVED' }, { status: 'PENDING', requestedById: auth.userId }] }
+    : { status: 'APPROVED' };
+}
+
 export const dishRouter = router({
   search: publicProcedure.input(dishSearchInput).query(async ({ ctx, input }) => {
     const pattern = `%${escapeLike(input.q)}%`;
+    const visible = ctx.auth
+      ? Prisma.sql`(d.status = 'APPROVED' OR (d.status = 'PENDING' AND d."requestedById" = ${ctx.auth.userId}))`
+      : Prisma.sql`d.status = 'APPROVED'`;
     const cuisineFilter = input.cuisineId
       ? Prisma.sql`AND EXISTS (
           SELECT 1 FROM "DishCuisine" AS dc
@@ -32,10 +51,9 @@ export const dishRouter = router({
         )`
       : Prisma.empty;
 
-    // Matches the name or any other name ("houmous" finds Hummus). Requested
-    // (pending) dishes are excluded until sign-in lets requesters see their own.
+    // Matches the name or any other name ("houmous" finds Hummus)
     const rows = await ctx.prisma.$queryRaw<DishSearchRow[]>`
-      SELECT d.id, d.slug, d.name, d.category, d.popularity, d."otherNames"
+      SELECT d.id, d.slug, d.name, d.category, d.popularity, d."otherNames", d.status::text AS status
       FROM "Dish" AS d
       CROSS JOIN LATERAL (
         SELECT GREATEST(
@@ -43,7 +61,7 @@ export const dishRouter = router({
           COALESCE((SELECT max(similarity(n, ${input.q})) FROM unnest(d."otherNames") AS n), 0)
         ) AS score
       ) AS s
-      WHERE d.status = 'APPROVED'
+      WHERE ${visible}
         AND (
           d.name % ${input.q}
           OR d.name ILIKE ${pattern}
@@ -81,11 +99,12 @@ export const dishRouter = router({
 
   byId: publicProcedure.input(byIdInput).query(async ({ ctx, input }) => {
     const dish = await ctx.prisma.dish.findFirst({
-      where: { id: input.id, status: 'APPROVED' },
+      where: { id: input.id, ...visibleDishes(ctx.auth) },
       select: {
         id: true,
         slug: true,
         name: true,
+        status: true,
         category: true,
         otherNames: true,
         ingredients: true,
@@ -110,6 +129,49 @@ export const dishRouter = router({
       ...rest,
       cuisines: sortByName(cuisines.map((c) => c.cuisine)),
       variantCount: _count.variants,
+    };
+  }),
+
+  /**
+   * A dish that isn't in the catalogue. It's usable straight away by the person who
+   * asked, and stays PENDING (hidden from everyone else) until an admin reviews it.
+   */
+  request: profileProcedure.input(dishRequestInput).mutation(async ({ ctx, input }) => {
+    const name = input.name.replace(/\s+/g, ' ');
+
+    const cuisine = await ctx.prisma.cuisine.findUnique({
+      where: { id: input.cuisineId },
+      select: { id: true },
+    });
+    if (!cuisine) throw new TRPCError({ code: 'BAD_REQUEST', message: 'Unknown cuisine' });
+
+    // Reuse before creating: a catalogue dish of the same name, or this user's own
+    // earlier request. APPROVED sorts first (enum declaration order).
+    const existing = await ctx.prisma.dish.findFirst({
+      where: {
+        name: { equals: name, mode: 'insensitive' },
+        OR: [{ status: 'APPROVED' }, { status: 'PENDING', requestedById: ctx.user.id }],
+      },
+      orderBy: { status: 'asc' },
+      select: requestedDishSelect,
+    });
+    const dish =
+      existing ??
+      (await ctx.prisma.dish.create({
+        data: {
+          // Pending slugs can never collide with catalogue slugs
+          slug: `pending-${randomUUID()}`,
+          name,
+          status: 'PENDING',
+          requestedById: ctx.user.id,
+          cuisines: { create: [{ cuisineId: cuisine.id }] },
+        },
+        select: requestedDishSelect,
+      }));
+
+    return {
+      created: existing === null,
+      dish: { ...dish, cuisines: sortByName(dish.cuisines.map((c) => c.cuisine)) },
     };
   }),
 });

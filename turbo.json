@@ -1,6 +1,15 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalPassThroughEnv": ["DATABASE_URL", "DIRECT_URL", "TEST_DATABASE_URL"],
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "DIRECT_URL",
+    "TEST_DATABASE_URL",
+    "SUPABASE_URL",
+    "SUPABASE_SECRET_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_JWT_SECRET",
+    "SUPABASE_PHOTOS_BUCKET"
+  ],
   "tasks": {
     "db:generate": {
       // Chains through packages without the script, so apps that only reach
@@ -12,8 +21,9 @@
     "build": {
       "dependsOn": ["^build", "^db:generate", "db:generate"],
       "outputs": ["dist/**", ".next/**", "!.next/cache/**"],
-      // Baked into the web app's rewrites at build time, so it must be part of the cache key
-      "env": ["API_URL"]
+      // Baked into the web app at build time (rewrites, browser bundle), so they must be
+      // part of the cache key
+      "env": ["API_URL", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"]
     },
     "typecheck": {
       "dependsOn": ["^db:generate", "db:generate"]

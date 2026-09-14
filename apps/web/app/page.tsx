@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useState } from 'react';
 import { useTRPC } from './trpc';
 
@@ -19,6 +20,10 @@ export default function Home() {
   return (
     <main>
       <h1>TasteCult</h1>
+      <p>
+        <Link href="/log">Log a dish</Link> · <Link href="/me">My logs</Link> ·{' '}
+        <Link href="/sign-in">Sign in</Link>
+      </p>
       <p>
         API:{' '}
         {health.isSuccess ? 'connected' : health.isError ? `error: ${health.error.message}` : '…'}

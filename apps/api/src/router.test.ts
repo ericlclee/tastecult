@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createCaller } from './router';
 
 const prisma = createTestPrismaClient();
-const api = createCaller({ prisma });
+const api = createCaller({ prisma, auth: null, storage: null });
 
 // King's Cross; "100% Burgers" is ~0.7 km away, Soho ~2.5 km, Shoreditch ~3.5 km
 const kingsCross = { lat: 51.5355, lng: -0.125 };
