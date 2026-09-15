@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import './globals.css';
+import { DevInspector } from './dev-inspector';
 import { Providers } from './providers';
 import { SiteNav } from './site-nav';
 
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <SiteNav />
             {children}
           </div>
+          {process.env.NODE_ENV === 'development' ? <DevInspector /> : null}
         </Providers>
       </body>
     </html>
