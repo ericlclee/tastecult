@@ -6,14 +6,17 @@ import { useEffect, useState } from 'react';
 // components it sits inside, so a piece of UI can be named precisely in conversation
 // ("LogFeed › LogSocial › button"). Alt+click copies the label; Alt+Shift+I toggles it.
 
+const LABEL_MAX_WIDTH = 720;
+
 interface Fiber {
   type: unknown;
   return: Fiber | null;
 }
 
-// Framework and library components that would only add noise to a label
+// Framework and library components that would only add noise to a label — including
+// Next.js's dev overlay and any error/suspense boundary, wherever the word appears
 const INTERNAL =
-  /^(Inner|Outer|Render|Redirect|Error|NotFound|HTTPAccess|Loading|Scroll|AppRouter|Router|Head|Hot|Dev|Server|Segment|Client|Metadata|Viewport|Boundary|Suspense|Fragment|Providers?$|QueryClient|TRPC|ReactDev|Root|Link$|LinkComponent|DevInspector)/;
+  /^(Inner|Outer|Render|Redirect|Error|NotFound|HTTPAccess|Loading|Scroll|AppRouter|AppDev|Router|Head|Hot|Dev|Server|Segment|Client|Metadata|Viewport|Suspense|Fragment|Providers?$|QueryClient|TRPC|ReactDev|Root|Link$|LinkComponent)|Overlay|Boundary/;
 
 function componentName(type: unknown): string | null {
   const candidate =
@@ -124,16 +127,20 @@ export function DevInspector() {
       <div
         style={{
           position: 'fixed',
-          top: rect.top >= 24 ? rect.top - 22 : rect.bottom + 2,
-          left: Math.max(4, Math.min(rect.left, window.innerWidth - 320)),
-          maxWidth: 316,
+          // Sits above the element when there's room (anchored by its bottom edge, so a
+          // label that wraps onto several lines grows upwards), otherwise below it
+          ...(rect.top >= 60
+            ? { bottom: window.innerHeight - rect.top + 2 }
+            : { top: rect.bottom + 2 }),
+          left: Math.max(4, Math.min(rect.left, window.innerWidth - LABEL_MAX_WIDTH - 4)),
+          maxWidth: `min(${LABEL_MAX_WIDTH}px, calc(100vw - 8px))`,
           padding: '2px 6px',
           background: '#e11d48',
           color: 'white',
           font: '12px/18px ui-monospace, SFMono-Regular, Menlo, monospace',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+          // Long labels wrap rather than being cut off
+          whiteSpace: 'normal',
+          overflowWrap: 'anywhere',
           borderRadius: 3,
           pointerEvents: 'none',
           zIndex: 2147483647,
