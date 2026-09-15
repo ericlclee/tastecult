@@ -10,7 +10,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body>
         <Providers>
-          <div className="app">
+          {/* Mobile-first: a phone-width column (430px ≈ a large phone), centred on wider screens */}
+          <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col items-center p-4 text-center *:w-full [&_img]:mx-auto">
             <SiteNav />
             {children}
           </div>
