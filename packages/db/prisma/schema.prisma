@@ -25,6 +25,14 @@ enum DishStatus {
   REJECTED
 }
 
+/// Keep in sync with REACTION_TYPES in packages/shared-types/src/reactions.ts
+enum ReactionType {
+  WANT
+  FIRE
+  CLAP
+  LOL
+}
+
 enum ReportTarget {
   USER
   RATING
@@ -46,6 +54,8 @@ model User {
   createdAt   DateTime @default(now())
 
   ratings             Rating[]
+  reactions           Reaction[]
+  comments            Comment[]
   following           Follow[]             @relation("Following")
   followers           Follow[]             @relation("Followers")
   blocking            Block[]              @relation("Blocking")
@@ -206,9 +216,42 @@ model Rating {
   menuItem MenuItem @relation(fields: [menuItemId], references: [id])
   cuisine  Cuisine? @relation(fields: [cuisineId], references: [id], onDelete: SetNull)
 
+  reactions Reaction[]
+  comments  Comment[]
+
   @@index([menuItemId, userId, visitedAt])
   @@index([userId, visitedAt])
   @@index([cuisineId])
+}
+
+/// One reaction per person per log, from a small fixed set; changing it replaces the old one.
+model Reaction {
+  ratingId  String
+  userId    String
+  type      ReactionType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  rating Rating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([ratingId, userId])
+  @@index([userId])
+}
+
+/// A comment on a log. Its author or the log's owner can delete it.
+model Comment {
+  id        String   @id @default(cuid())
+  ratingId  String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  rating Rating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ratingId, createdAt])
+  @@index([userId])
 }
 
 model Report {

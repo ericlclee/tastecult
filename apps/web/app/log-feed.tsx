@@ -4,6 +4,7 @@ import type { RouterOutputs } from '@tastecult/api-client';
 import { isTier, tierLabel, TIERS } from '@tastecult/shared-types';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { LogSocial } from './log-social';
 
 type LogItem = RouterOutputs['rating']['forDish']['items'][number];
 type LogSummary = RouterOutputs['rating']['forDish']['summary'];
@@ -109,6 +110,7 @@ export function LogFeed({
                 {log.cuisine ? ` · ${log.cuisine.name}` : ''}
               </p>
               {log.note ? <p>{log.note}</p> : null}
+              <LogSocial ratingId={log.id} social={log.social} />
             </li>
           );
         })}

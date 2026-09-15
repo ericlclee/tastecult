@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@tastecult/db';
 import { cleanAlias, normalizeAlias } from '@tastecult/shared-types';
 import { DEMO_ID_PREFIX, DEMO_PHOTO_FOLDER } from './data';
@@ -87,8 +88,11 @@ export async function seedDemoData(
     });
   }
 
+  // Ids chosen here so reactions and comments can point at logs created in bulk
+  const logIds = plan.logs.map(() => randomUUID());
   await prisma.rating.createMany({
-    data: plan.logs.map((log) => ({
+    data: plan.logs.map((log, index) => ({
+      id: logIds[index]!,
       userId: log.userId,
       menuItemId: menuItemIds.get(menuItemKey(log))!,
       tier: log.tier,
@@ -102,11 +106,29 @@ export async function seedDemoData(
 
   const follows = await prisma.follow.createMany({ data: plan.follows, skipDuplicates: true });
 
+  const reactions = await prisma.reaction.createMany({
+    data: plan.reactions.map((reaction) => ({
+      ratingId: logIds[reaction.logIndex]!,
+      userId: reaction.userId,
+      type: reaction.type,
+    })),
+  });
+  const comments = await prisma.comment.createMany({
+    data: plan.comments.map((comment) => ({
+      ratingId: logIds[comment.logIndex]!,
+      userId: comment.userId,
+      body: comment.body,
+      createdAt: comment.createdAt,
+    })),
+  });
+
   return {
     users: plan.users.length,
     logs: plan.logs.length,
     menuItems: menuItemIds.size,
     follows: follows.count,
+    reactions: reactions.count,
+    comments: comments.count,
     photosUploaded: photoPaths.size,
   };
 }

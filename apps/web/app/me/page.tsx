@@ -3,6 +3,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { isTier, tierLabel } from '@tastecult/shared-types';
 import Link from 'next/link';
+import { LogSocial } from '../log-social';
 import { useSession } from '../session';
 import { useTRPC } from '../trpc';
 
@@ -84,6 +85,7 @@ export default function MyLogsPage() {
               {log.cuisine ? ` · ${log.cuisine.name}` : ''}
             </p>
             {log.note ? <p>{log.note}</p> : null}
+            <LogSocial ratingId={log.id} social={log.social} />
           </li>
         ))}
       </ul>

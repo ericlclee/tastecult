@@ -99,4 +99,22 @@ describe('planDemoData', () => {
     expect(follows.filter((f) => f.followerId === REAL_USER)).toHaveLength(REAL_USER_FOLLOWS);
     expect(follows.filter((f) => f.followingId === REAL_USER)).toHaveLength(REAL_USER_FOLLOWERS);
   });
+
+  it('adds reactions from other people and comment threads that come after the log', () => {
+    const { logs, reactions, comments } = plan();
+    expect(reactions.length).toBeGreaterThan(logs.length / 2);
+    expect(comments.length).toBeGreaterThan(50);
+
+    const reactionKeys = reactions.map((r) => `${r.userId}|${r.logIndex}`);
+    expect(new Set(reactionKeys).size).toBe(reactionKeys.length);
+    expect(reactions.every((r) => logs[r.logIndex]!.userId !== r.userId)).toBe(true);
+
+    for (const comment of comments) {
+      const log = logs[comment.logIndex]!;
+      expect(comment.createdAt.getTime()).toBeGreaterThanOrEqual(log.createdAt.getTime());
+      expect(comment.createdAt.getTime()).toBeLessThanOrEqual(now.getTime());
+    }
+    // Some threads include the log owner replying
+    expect(comments.some((c) => logs[c.logIndex]!.userId === c.userId)).toBe(true);
+  });
 });

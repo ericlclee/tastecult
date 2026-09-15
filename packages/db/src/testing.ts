@@ -16,7 +16,7 @@ export function createTestPrismaClient(): PrismaClient {
 export async function resetDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(`
     TRUNCATE TABLE
-      "Rating", "MenuItem", "DishCuisine", "Dish", "Cuisine", "Restaurant",
+      "Reaction", "Comment", "Rating", "MenuItem", "DishCuisine", "Dish", "Cuisine", "Restaurant",
       "Follow", "Block", "Report", "MissingPlaceReport", "User"
     RESTART IDENTITY CASCADE
   `);

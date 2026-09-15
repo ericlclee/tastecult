@@ -73,7 +73,8 @@ try {
 
     console.log(
       `\nAdded ${result.users} people, ${result.logs} logs across ${result.menuItems} menu items, ` +
-        `${result.follows} follows and ${result.photosUploaded} photos.`,
+        `${result.follows} follows, ${result.reactions} reactions, ${result.comments} comments ` +
+        `and ${result.photosUploaded} photos.`,
     );
     if (realUsers.length > 0) {
       console.log(

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { REACTION_TYPES } from './reactions';
 import { tierSchema } from './tiers';
 
 export const idSchema = z.string().min(1).max(64);
@@ -94,6 +95,28 @@ export const usernameInput = z.object({ username: usernameLookupSchema });
 /** A page of a person's logs, followers or following. */
 export const userPageInput = z.object({
   username: usernameLookupSchema,
+  cursor: idSchema.nullish(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
+export const reactionTypeSchema = z.enum(REACTION_TYPES);
+
+/** React to a log, switch to a different reaction, or clear yours with null. */
+export const setReactionInput = z.object({
+  ratingId: idSchema,
+  type: reactionTypeSchema.nullable(),
+});
+
+export const COMMENT_MAX_LENGTH = 1000;
+
+export const createCommentInput = z.object({
+  ratingId: idSchema,
+  body: z.string().trim().min(1, 'Write something first').max(COMMENT_MAX_LENGTH),
+});
+
+/** A log's comments, oldest first. Signed-out visitors only ever get a short preview. */
+export const commentsPageInput = z.object({
+  ratingId: idSchema,
   cursor: idSchema.nullish(),
   limit: z.number().int().min(1).max(50).default(20),
 });

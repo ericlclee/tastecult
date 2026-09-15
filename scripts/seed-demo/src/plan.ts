@@ -1,5 +1,21 @@
-import { londonDateString, type Tier } from '@tastecult/shared-types';
-import { demoUserId, LOG_COUNTS, MENU_NAMES, NOTES, PEOPLE, THEMES, TIER_WEIGHTS } from './data';
+import {
+  londonDateString,
+  REACTION_TYPES,
+  type ReactionType,
+  type Tier,
+} from '@tastecult/shared-types';
+import {
+  COMMENTS,
+  demoUserId,
+  LOG_COUNTS,
+  MENU_NAMES,
+  NOTES,
+  PEOPLE,
+  REACTION_WEIGHTS,
+  REPLIES,
+  THEMES,
+  TIER_WEIGHTS,
+} from './data';
 import { createRandom, type Random } from './random';
 
 export interface VenueOption {
@@ -43,10 +59,26 @@ export interface PlannedFollow {
   followingId: string;
 }
 
+export interface PlannedReaction {
+  userId: string;
+  /** Index into DemoPlan.logs — log ids only exist once the seed writes them. */
+  logIndex: number;
+  type: ReactionType;
+}
+
+export interface PlannedComment {
+  userId: string;
+  logIndex: number;
+  body: string;
+  createdAt: Date;
+}
+
 export interface DemoPlan {
   users: PlannedUser[];
   logs: PlannedLog[];
   follows: PlannedFollow[];
+  reactions: PlannedReaction[];
+  comments: PlannedComment[];
 }
 
 export const DEMO_SEED = 20260914;
@@ -155,7 +187,44 @@ export function planDemoData(input: {
       follow(user.id, realUserId);
   }
 
-  return { users, logs, follows: [...follows.values()] };
+  // Planned last, so adding reactions and comments didn't change the people, logs or follows
+  const reactions: PlannedReaction[] = [];
+  const comments: PlannedComment[] = [];
+  const later = (at: number) => Math.min(at + rng.int(5, 1500) * 60_000, now.getTime());
+  logs.forEach((log, logIndex) => {
+    const others = users.filter((user) => user.id !== log.userId);
+
+    // Better-rated logs draw more reactions
+    const reactorCount = rng.int(0, 2) + (log.tier >= 4 ? rng.int(0, 3) : 0);
+    for (const reactor of rng.shuffle(others).slice(0, reactorCount)) {
+      const type = rng.weighted(REACTION_TYPES, (t) => REACTION_WEIGHTS[t]);
+      reactions.push({ userId: reactor.id, logIndex, type });
+    }
+
+    if (rng.chance(0.3)) {
+      let at = log.createdAt.getTime();
+      for (const commenter of rng.shuffle(others).slice(0, rng.int(1, 3))) {
+        at = later(at);
+        comments.push({
+          userId: commenter.id,
+          logIndex,
+          body: rng.pick(COMMENTS),
+          createdAt: new Date(at),
+        });
+      }
+      if (rng.chance(0.4)) {
+        at = later(at);
+        comments.push({
+          userId: log.userId,
+          logIndex,
+          body: rng.pick(REPLIES),
+          createdAt: new Date(at),
+        });
+      }
+    }
+  });
+
+  return { users, logs, follows: [...follows.values()], reactions, comments };
 }
 
 function freshChoice(

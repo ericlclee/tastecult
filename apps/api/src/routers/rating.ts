@@ -16,6 +16,7 @@ import {
 import { TRPCError } from '@trpc/server';
 import type { Context } from '../context';
 import { isOwnPhotoPath } from '../photos';
+import { socialFor } from '../social';
 import type { PhotoStorage } from '../storage';
 import { profileProcedure, publicProcedure, router } from '../trpc';
 
@@ -57,8 +58,18 @@ function toRatingView<T extends RatingRow>(row: T, storage: PhotoStorage | null)
   };
 }
 
+/** Log views with reaction and comment counts, for any list of logs. */
+async function withSocial<T extends RatingRow & { id: string }>(ctx: Context, rows: T[]) {
+  const social = await socialFor(
+    ctx.prisma,
+    rows.map((row) => row.id),
+    ctx.auth?.userId ?? null,
+  );
+  return rows.map((row) => ({ ...toRatingView(row, ctx.storage), social: social.get(row.id)! }));
+}
+
 /** Logs of a requested (pending) dish are only visible to the person who requested it. */
-function visibleLogs(auth: Context['auth']): Prisma.RatingWhereInput {
+export function visibleLogs(auth: Context['auth']): Prisma.RatingWhereInput {
   return {
     menuItem: {
       dish: auth
@@ -121,7 +132,7 @@ async function logsPage(
   const page = hasMore ? rows.slice(0, take) : rows;
   return {
     summary,
-    items: page.map((row) => toRatingView(row, ctx.storage)),
+    items: await withSocial(ctx, page),
     nextCursor: signedIn && hasMore ? page[page.length - 1]!.id : null,
     /** True when a signed-out visitor is seeing a preview of a longer list. */
     limited: !signedIn && hasMore,
@@ -217,7 +228,7 @@ export const ratingRouter = router({
     const hasMore = rows.length > input.limit;
     const page = hasMore ? rows.slice(0, input.limit) : rows;
     return {
-      items: page.map((row) => toRatingView(row, ctx.storage)),
+      items: await withSocial(ctx, page),
       nextCursor: hasMore ? page[page.length - 1]!.id : null,
     };
   }),
@@ -286,7 +297,7 @@ export const ratingRouter = router({
     const hasMore = rows.length > input.limit;
     const page = hasMore ? rows.slice(0, input.limit) : rows;
     return {
-      items: page.map((row) => toRatingView(row, ctx.storage)),
+      items: await withSocial(ctx, page),
       nextCursor: hasMore ? page[page.length - 1]!.id : null,
     };
   }),

@@ -1,4 +1,4 @@
-import type { Tier } from '@tastecult/shared-types';
+import type { ReactionType, Tier } from '@tastecult/shared-types';
 
 /** Every mock person's id starts with this, so demo rows can always be found and removed. */
 export const DEMO_ID_PREFIX = 'd0000000-0000-4000-8000-';
@@ -431,3 +431,31 @@ export const NOTES: Record<Tier, string[]> = {
     'Unreal. Booking again already.',
   ],
 };
+
+/** "Want this" is the most common reaction to a food photo; "Haha" the rarest. */
+export const REACTION_WEIGHTS: Record<ReactionType, number> = { WANT: 4, FIRE: 3, CLAP: 2, LOL: 1 };
+
+export const COMMENTS = [
+  'Adding this to my list.',
+  'Which one did you get?',
+  'Was it busy?',
+  'Need to try this!',
+  'How spicy was it?',
+  'Agree, this place is great.',
+  'Went last week — so good.',
+  'That photo is making me hungry.',
+  'Was the portion big?',
+  'Did you book or walk in?',
+  'Better than the one near you?',
+  "Still haven't been, is it worth it?",
+];
+
+/** The log owner answering a comment. */
+export const REPLIES = [
+  'Walked in, no wait at lunch.',
+  'Definitely go!',
+  'Get the extra toppings.',
+  'Ask for it extra spicy.',
+  'Go early, it fills up fast.',
+  'Portion was huge, bring a friend.',
+];
