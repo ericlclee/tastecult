@@ -24,14 +24,12 @@ export const createRatingInput = z.object({
 });
 export type CreateRatingInput = z.infer<typeof createRatingInput>;
 
-export const updateRatingInput = z.object({
-  id: idSchema,
-  tier: tierSchema.optional(),
-  cuisineId: idSchema.nullish(),
-  visitedAt: visitDateSchema.optional(),
-  photoPath: z.string().max(512).nullish(),
-  note: z.string().max(2000).nullish(),
-});
+/**
+ * Replaces every field of one of your logs, as the edit form sends them all. For the
+ * photo, leaving `photoPath` out keeps the current one, `null` removes it and a new
+ * upload's path replaces it.
+ */
+export const updateRatingInput = createRatingInput.extend({ id: idSchema });
 export type UpdateRatingInput = z.infer<typeof updateRatingInput>;
 
 export const coordinatesSchema = z.object({

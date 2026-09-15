@@ -17,6 +17,7 @@ const storage: PhotoStorage = {
     token: 't',
   }),
   publicUrl: (path) => `https://storage.test/public/${path}`,
+  remove: async () => {},
 };
 
 type Api = ReturnType<typeof createCaller>;

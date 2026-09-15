@@ -1,8 +1,11 @@
 import { Prisma, type PrismaClient } from '@tastecult/db';
 import {
+  byIdInput,
   cleanAlias,
   createRatingInput,
   cursorPageInput,
+  updateRatingInput,
+  type CreateRatingInput,
   dishLogsInput,
   isTier,
   latestLogPerUser,
@@ -139,81 +142,215 @@ async function logsPage(
   };
 }
 
+/** The edit form also needs the dish's cuisines, to offer them in the cuisine picker. */
+const editableLogSelect = {
+  ...ratingSelect,
+  menuItem: {
+    select: {
+      ...ratingSelect.menuItem.select,
+      dish: {
+        select: {
+          ...ratingSelect.menuItem.select.dish.select,
+          cuisines: { select: { cuisine: { select: { id: true, name: true } } } },
+        },
+      },
+    },
+  },
+} satisfies Prisma.RatingSelect;
+
+/**
+ * Checks what a new or edited log refers to. `currentPhotoPath` is the photo an edited log
+ * already has: keeping it is always allowed, while any other photo must be the person's own upload.
+ */
+async function checkLogFields(
+  prisma: PrismaClient,
+  userId: string,
+  input: CreateRatingInput,
+  currentPhotoPath: string | null,
+) {
+  const today = londonDateString();
+  const visitedOn = input.visitedAt ?? today;
+  if (visitedOn > today) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: "The visit date can't be in the future",
+    });
+  }
+
+  if (
+    input.photoPath &&
+    input.photoPath !== currentPhotoPath &&
+    !isOwnPhotoPath(input.photoPath, userId)
+  ) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: "That photo isn't one of your uploads" });
+  }
+
+  const [restaurant, dish, cuisine] = await Promise.all([
+    prisma.restaurant.findUnique({ where: { id: input.restaurantId }, select: { id: true } }),
+    // A dish you requested can be logged before it's approved; nobody else's can
+    prisma.dish.findFirst({
+      where: {
+        id: input.dishId,
+        OR: [{ status: 'APPROVED' }, { status: 'PENDING', requestedById: userId }],
+      },
+      select: { id: true },
+    }),
+    input.cuisineId
+      ? prisma.cuisine.findUnique({ where: { id: input.cuisineId }, select: { id: true } })
+      : null,
+  ]);
+  if (!restaurant) throw new TRPCError({ code: 'NOT_FOUND', message: 'Restaurant not found' });
+  if (!dish) throw new TRPCError({ code: 'NOT_FOUND', message: 'Dish not found' });
+  if (input.cuisineId && !cuisine) {
+    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Unknown cuisine' });
+  }
+
+  return {
+    restaurantId: restaurant.id,
+    dishId: dish.id,
+    fields: {
+      tier: input.tier,
+      visitedAt: new Date(`${visitedOn}T00:00:00Z`),
+      cuisineId: input.cuisineId ?? null,
+      note: input.note?.trim() || null,
+    },
+  };
+}
+
+/**
+ * The same dish under the same menu name at the same restaurant is one menu item, however
+ * it was typed; the first person's spelling is kept for display.
+ */
+async function findOrCreateMenuItem(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  checked: { restaurantId: string; dishId: string },
+  alias: string | null | undefined,
+): Promise<string> {
+  const normalizedAlias = normalizeAlias(alias);
+  const menuItem = await tx.menuItem.upsert({
+    where: {
+      restaurantId_dishId_normalizedAlias: {
+        restaurantId: checked.restaurantId,
+        dishId: checked.dishId,
+        normalizedAlias,
+      },
+    },
+    create: {
+      restaurantId: checked.restaurantId,
+      dishId: checked.dishId,
+      alias: cleanAlias(alias),
+      normalizedAlias,
+      createdById: userId,
+    },
+    update: {},
+    select: { id: true },
+  });
+  return menuItem.id;
+}
+
+/** A menu item exists only because someone logged it, so it goes when its last log does. */
+async function deleteMenuItemIfUnused(tx: Prisma.TransactionClient, menuItemId: string) {
+  await tx.menuItem.deleteMany({ where: { id: menuItemId, ratings: { none: {} } } });
+}
+
+/**
+ * Runs after the database change has been saved, so a storage failure can't undo or block
+ * the edit — the worst case is an unused file, which is logged for cleanup.
+ */
+async function removePhoto(storage: PhotoStorage | null, path: string) {
+  if (!storage) {
+    console.error(`Photo storage isn't configured, so ${path} was not deleted`);
+    return;
+  }
+  try {
+    await storage.remove([path]);
+  } catch (error) {
+    console.error(`Could not delete photo ${path}:`, error);
+  }
+}
+
+async function findOwnLog(prisma: PrismaClient, id: string, userId: string) {
+  const log = await prisma.rating.findFirst({
+    where: { id, userId },
+    select: { id: true, menuItemId: true, photoPath: true },
+  });
+  // Someone else's log reads as missing, so ids can't be probed
+  if (!log) throw new TRPCError({ code: 'NOT_FOUND', message: 'Log not found' });
+  return log;
+}
+
 export const ratingRouter = router({
   create: profileProcedure.input(createRatingInput).mutation(async ({ ctx, input }) => {
     const userId = ctx.user.id;
+    const checked = await checkLogFields(ctx.prisma, userId, input, null);
 
-    const today = londonDateString();
-    const visitedOn = input.visitedAt ?? today;
-    if (visitedOn > today) {
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: "The visit date can't be in the future",
-      });
-    }
-
-    if (input.photoPath && !isOwnPhotoPath(input.photoPath, userId)) {
-      throw new TRPCError({ code: 'FORBIDDEN', message: "That photo isn't one of your uploads" });
-    }
-
-    const [restaurant, dish, cuisine] = await Promise.all([
-      ctx.prisma.restaurant.findUnique({ where: { id: input.restaurantId }, select: { id: true } }),
-      // A dish you requested can be logged before it's approved; nobody else's can
-      ctx.prisma.dish.findFirst({
-        where: {
-          id: input.dishId,
-          OR: [{ status: 'APPROVED' }, { status: 'PENDING', requestedById: userId }],
-        },
-        select: { id: true },
-      }),
-      input.cuisineId
-        ? ctx.prisma.cuisine.findUnique({ where: { id: input.cuisineId }, select: { id: true } })
-        : null,
-    ]);
-    if (!restaurant) throw new TRPCError({ code: 'NOT_FOUND', message: 'Restaurant not found' });
-    if (!dish) throw new TRPCError({ code: 'NOT_FOUND', message: 'Dish not found' });
-    if (input.cuisineId && !cuisine) {
-      throw new TRPCError({ code: 'BAD_REQUEST', message: 'Unknown cuisine' });
-    }
-
-    const normalizedAlias = normalizeAlias(input.alias);
-    const row = await ctx.prisma.$transaction(async (tx) => {
-      // The same dish under the same menu name at the same restaurant is one menu item,
-      // however it was typed; the first person's spelling is kept for display
-      const menuItem = await tx.menuItem.upsert({
-        where: {
-          restaurantId_dishId_normalizedAlias: {
-            restaurantId: restaurant.id,
-            dishId: dish.id,
-            normalizedAlias,
-          },
-        },
-        create: {
-          restaurantId: restaurant.id,
-          dishId: dish.id,
-          alias: cleanAlias(input.alias),
-          normalizedAlias,
-          createdById: userId,
-        },
-        update: {},
-        select: { id: true },
-      });
-
-      return tx.rating.create({
+    const row = await ctx.prisma.$transaction(async (tx) =>
+      tx.rating.create({
         data: {
           userId,
-          menuItemId: menuItem.id,
-          tier: input.tier,
-          visitedAt: new Date(`${visitedOn}T00:00:00Z`),
-          cuisineId: input.cuisineId ?? null,
+          menuItemId: await findOrCreateMenuItem(tx, userId, checked, input.alias),
           photoPath: input.photoPath ?? null,
-          note: input.note?.trim() || null,
+          ...checked.fields,
         },
         select: ratingSelect,
-      });
-    });
+      }),
+    );
 
     return toRatingView(row, ctx.storage);
+  }),
+
+  /** One of your own logs, with what the edit form needs. */
+  mineById: profileProcedure.input(byIdInput).query(async ({ ctx, input }) => {
+    const row = await ctx.prisma.rating.findFirst({
+      where: { id: input.id, userId: ctx.user.id },
+      select: editableLogSelect,
+    });
+    if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Log not found' });
+    return toRatingView(row, ctx.storage);
+  }),
+
+  /**
+   * Replaces every field of one of your logs. It keeps its id, so reactions and comments
+   * stay with it even when the restaurant or dish changes.
+   */
+  update: profileProcedure.input(updateRatingInput).mutation(async ({ ctx, input }) => {
+    const userId = ctx.user.id;
+    const existing = await findOwnLog(ctx.prisma, input.id, userId);
+    const checked = await checkLogFields(ctx.prisma, userId, input, existing.photoPath);
+    const photoPath = input.photoPath === undefined ? existing.photoPath : input.photoPath;
+
+    const row = await ctx.prisma.$transaction(async (tx) => {
+      const menuItemId = await findOrCreateMenuItem(tx, userId, checked, input.alias);
+      const updated = await tx.rating.update({
+        where: { id: existing.id },
+        data: { menuItemId, photoPath, ...checked.fields },
+        select: ratingSelect,
+      });
+      if (menuItemId !== existing.menuItemId) {
+        await deleteMenuItemIfUnused(tx, existing.menuItemId);
+      }
+      return updated;
+    });
+
+    if (existing.photoPath && existing.photoPath !== photoPath) {
+      await removePhoto(ctx.storage, existing.photoPath);
+    }
+    return toRatingView(row, ctx.storage);
+  }),
+
+  /** Deletes one of your logs, with its reactions, comments and photo. */
+  delete: profileProcedure.input(byIdInput).mutation(async ({ ctx, input }) => {
+    const existing = await findOwnLog(ctx.prisma, input.id, ctx.user.id);
+
+    await ctx.prisma.$transaction(async (tx) => {
+      // Reactions and comments cascade with the log
+      await tx.rating.delete({ where: { id: existing.id } });
+      await deleteMenuItemIfUnused(tx, existing.menuItemId);
+    });
+
+    if (existing.photoPath) await removePhoto(ctx.storage, existing.photoPath);
+    return { id: existing.id };
   }),
 
   /** Your own logs, most recent visit first. */

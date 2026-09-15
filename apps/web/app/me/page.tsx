@@ -3,6 +3,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { isTier, tierLabel } from '@tastecult/shared-types';
 import Link from 'next/link';
+import { DeleteLogButton } from '../log/delete-log-button';
 import { LogSocial } from '../log-social';
 import { useSession } from '../session';
 import { useTRPC } from '../trpc';
@@ -85,6 +86,9 @@ export default function MyLogsPage() {
               {log.cuisine ? ` · ${log.cuisine.name}` : ''}
             </p>
             {log.note ? <p>{log.note}</p> : null}
+            <p>
+              <Link href={`/log/${log.id}/edit`}>Edit</Link> <DeleteLogButton id={log.id} />
+            </p>
             <LogSocial ratingId={log.id} social={log.social} />
           </li>
         ))}

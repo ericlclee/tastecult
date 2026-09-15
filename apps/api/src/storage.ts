@@ -5,6 +5,8 @@ export interface PhotoStorage {
   createUploadUrl(path: string): Promise<{ signedUrl: string; token: string }>;
   /** Where a stored photo can be viewed. The bucket is public: paths are unguessable. */
   publicUrl(path: string): string;
+  /** Deletes stored photos; paths that don't exist are ignored. */
+  remove(paths: string[]): Promise<void>;
 }
 
 export interface SupabasePhotoStorageOptions {
@@ -32,6 +34,11 @@ export function createSupabasePhotoStorage(options: SupabasePhotoStorageOptions)
     },
     publicUrl(path) {
       return bucket.getPublicUrl(path).data.publicUrl;
+    },
+    async remove(paths) {
+      if (paths.length === 0) return;
+      const { error } = await bucket.remove(paths);
+      if (error) throw new Error(`Could not delete photos: ${error.message}`);
     },
   };
 }

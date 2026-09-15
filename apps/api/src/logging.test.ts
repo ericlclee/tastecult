@@ -17,6 +17,7 @@ const storage: PhotoStorage = {
     token: 'abc',
   }),
   publicUrl: (path) => `https://storage.test/public/${path}`,
+  remove: async () => {},
 };
 
 function as(userId: string | null, options: { storage?: PhotoStorage | null } = {}) {
