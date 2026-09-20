@@ -1,1 +1,81 @@
 @import 'tailwindcss';
+
+/*
+ * Design panel controls. Each setting is one CSS variable that the panel switches by
+ * setting a data attribute on <html>; add future ones (brand colours, spacing) the same way.
+ */
+
+/* Text font — the fonts themselves are loaded in fonts.ts */
+:root {
+  --app-sans: ui-sans-serif, system-ui, sans-serif;
+  --app-serif: ui-serif, Georgia, serif;
+  --app-font: var(--font-inter), var(--app-sans);
+}
+
+:root[data-font='inter'] {
+  --app-font: var(--font-inter), var(--app-sans);
+}
+:root[data-font='dm-sans'] {
+  --app-font: var(--font-dm-sans), var(--app-sans);
+}
+:root[data-font='jakarta'] {
+  --app-font: var(--font-jakarta), var(--app-sans);
+}
+:root[data-font='manrope'] {
+  --app-font: var(--font-manrope), var(--app-sans);
+}
+:root[data-font='figtree'] {
+  --app-font: var(--font-figtree), var(--app-sans);
+}
+:root[data-font='outfit'] {
+  --app-font: var(--font-outfit), var(--app-sans);
+}
+:root[data-font='work-sans'] {
+  --app-font: var(--font-work-sans), var(--app-sans);
+}
+:root[data-font='rubik'] {
+  --app-font: var(--font-rubik), var(--app-sans);
+}
+:root[data-font='sora'] {
+  --app-font: var(--font-sora), var(--app-sans);
+}
+:root[data-font='space-grotesk'] {
+  --app-font: var(--font-space-grotesk), var(--app-sans);
+}
+:root[data-font='bricolage'] {
+  --app-font: var(--font-bricolage), var(--app-sans);
+}
+:root[data-font='poppins'] {
+  --app-font: var(--font-poppins), var(--app-sans);
+}
+:root[data-font='fraunces'] {
+  --app-font: var(--font-fraunces), var(--app-serif);
+}
+:root[data-font='source-serif'] {
+  --app-font: var(--font-source-serif), var(--app-serif);
+}
+:root[data-font='playfair'] {
+  --app-font: var(--font-playfair), var(--app-serif);
+}
+:root[data-font='lora'] {
+  --app-font: var(--font-lora), var(--app-serif);
+}
+:root[data-font='newsreader'] {
+  --app-font: var(--font-newsreader), var(--app-serif);
+}
+:root[data-font='eb-garamond'] {
+  --app-font: var(--font-eb-garamond), var(--app-serif);
+}
+:root[data-font='crimson'] {
+  --app-font: var(--font-crimson), var(--app-serif);
+}
+:root[data-font='instrument-serif'] {
+  --app-font: var(--font-instrument-serif), var(--app-serif);
+}
+:root[data-font='system'] {
+  --app-font: var(--app-sans);
+}
+
+body {
+  font-family: var(--app-font);
+}

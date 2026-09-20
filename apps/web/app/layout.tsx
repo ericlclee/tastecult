@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import './globals.css';
+import { DesignPanel } from './design-panel';
 import { DevInspector } from './dev-inspector';
+import { fontVariables } from './fonts';
 import { Providers } from './providers';
 import { SiteNav } from './site-nav';
 
@@ -8,7 +10,7 @@ export const metadata = { title: 'TasteCult' };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={fontVariables}>
       <body>
         <Providers>
           {/* Mobile-first: a phone-width column (430px ≈ a large phone), centred on wider screens */}
@@ -17,7 +19,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             {children}
             <SiteNav />
           </div>
-          {process.env.NODE_ENV === 'development' ? <DevInspector /> : null}
+          {/* Design tools live outside the app column and only in development */}
+          {process.env.NODE_ENV === 'development' ? (
+            <>
+              <DesignPanel />
+              <DevInspector />
+            </>
+          ) : null}
         </Providers>
       </body>
     </html>
