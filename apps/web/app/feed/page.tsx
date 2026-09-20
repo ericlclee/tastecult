@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { LogFeed } from '../log-feed';
+import { VisitFeed } from '../visit-feed';
 import { useSession } from '../session';
 import { useTRPC } from '../trpc';
 
@@ -12,7 +12,7 @@ export default function FeedPage() {
   const { session, ready } = useSession();
   const me = useQuery(trpc.user.me.queryOptions(undefined, { enabled: Boolean(session) }));
   const feed = useInfiniteQuery(
-    trpc.rating.feed.infiniteQueryOptions(
+    trpc.visit.feed.infiniteQueryOptions(
       { limit: 20 },
       { enabled: Boolean(me.data?.profile), getNextPageParam: (page) => page.nextCursor },
     ),
@@ -31,7 +31,7 @@ export default function FeedPage() {
       <main>
         <h1>Feed</h1>
         <p>
-          <Link href="/sign-in">Sign in</Link> to see logs from people you follow.
+          <Link href="/sign-in">Sign in</Link> to see visits from people you follow.
         </p>
       </main>
     );
@@ -60,7 +60,7 @@ export default function FeedPage() {
   return (
     <main>
       <h1>Feed</h1>
-      <LogFeed
+      <VisitFeed
         pages={feed.data?.pages}
         status={feed.status}
         error={feed.error?.message ?? null}

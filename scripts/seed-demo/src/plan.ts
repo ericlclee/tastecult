@@ -144,6 +144,7 @@ export function planDemoData(input: {
     );
 
     const history: Choice[] = [];
+    const dishesOnVisit = new Map<string, Set<string>>();
     for (let i = 0; i < (counts[index] ?? 0); i++) {
       const visitedOn = londonDateString(
         new Date(now.getTime() - rng.int(0, HISTORY_DAYS) * DAY_MS),
@@ -155,19 +156,61 @@ export function planDemoData(input: {
         : freshChoice(themes, regulars, venuesByTheme, dishesByTheme, rng);
       history.push(choice);
 
-      logs.push({
-        userId,
-        restaurantId: choice.restaurantId,
-        dishId: choice.dishId,
-        alias: choice.alias,
-        tier: choice.tier,
-        visitedOn,
-        createdAt: createdAtFor(visitedOn, now, rng),
-        note: rng.chance(0.6) ? rng.pick(NOTES[choice.tier]) : null,
-        cuisineId:
-          choice.cuisineIds.length > 0 && rng.chance(0.3) ? rng.pick(choice.cuisineIds) : null,
-        photoHue: rng.chance(0.55) ? (hueByTheme.get(choice.theme) ?? 30) + rng.int(-15, 15) : null,
-      });
+      const createdAt = createdAtFor(visitedOn, now, rng);
+      // Logs that share a person, a restaurant and a date become one visit, so a dish
+      // must not appear twice among them — a return visit can land on such a date too
+      const push = (one: Choice) => {
+        const visitKey = `${userId}|${one.restaurantId}|${visitedOn}`;
+        if (dishesOnVisit.get(visitKey)?.has(one.dishId)) return;
+        dishesOnVisit.set(
+          visitKey,
+          (dishesOnVisit.get(visitKey) ?? new Set<string>()).add(one.dishId),
+        );
+        logs.push({
+          userId,
+          restaurantId: one.restaurantId,
+          dishId: one.dishId,
+          alias: one.alias,
+          tier: one.tier,
+          visitedOn,
+          createdAt,
+          note: rng.chance(0.6) ? rng.pick(NOTES[one.tier]) : null,
+          cuisineId: one.cuisineIds.length > 0 && rng.chance(0.3) ? rng.pick(one.cuisineIds) : null,
+          photoHue: rng.chance(0.55) ? (hueByTheme.get(one.theme) ?? 30) + rng.int(-15, 15) : null,
+        });
+      };
+
+      push(choice);
+
+      // Most meals are more than one dish: share a restaurant and date with the first,
+      // so the seed produces real multi-dish visits and not only single-dish ones
+      if (rng.chance(0.45)) {
+        const extras = rng.int(1, 2);
+        const options = dishesByTheme.get(choice.theme)!;
+        for (let extra = 0; extra < extras; extra++) {
+          const dish = rng.weighted(options, (d) => 1 + Math.log10(d.popularity + 1));
+          if (
+            logs.some(
+              (log) =>
+                log.dishId === dish.id &&
+                log.visitedOn === visitedOn &&
+                log.userId === userId &&
+                log.restaurantId === choice.restaurantId,
+            )
+          ) {
+            continue;
+          }
+          const menuNames = MENU_NAMES[dish.name];
+          push({
+            theme: choice.theme,
+            restaurantId: choice.restaurantId,
+            dishId: dish.id,
+            alias: menuNames && rng.chance(0.55) ? rng.pick(menuNames) : null,
+            cuisineIds: dish.cuisineIds,
+            tier: rng.weighted(TIERS, (tier) => TIER_WEIGHTS[tier]),
+          });
+        }
+      }
     }
   });
 

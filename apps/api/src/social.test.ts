@@ -67,7 +67,13 @@ beforeEach(async () => {
   alice = await withProfile(ALICE, 'alice');
   bob = await withProfile(BOB, 'bob');
   carol = await withProfile(CAROL, 'carol');
-  logId = (await alice.rating.create({ restaurantId, dishId: ramenId, tier: 4 })).id;
+  logId = (
+    await alice.visit.create({
+      restaurantId,
+      dishes: [{ dishId: ramenId, tier: 4 }],
+      photos: [],
+    })
+  ).dishes[0]!.id;
 });
 
 afterAll(async () => {
@@ -100,8 +106,8 @@ describe('reactions', () => {
 
     await alice.user.follow({ username: 'bob' });
     await bob.user.follow({ username: 'alice' });
-    const [feedItem] = (await bob.rating.feed({})).items;
-    expect(feedItem!.social.myReaction).toBe('FIRE');
+    const [feedVisit] = (await bob.visit.feed({})).items;
+    expect(feedVisit!.dishes[0]!.social.myReaction).toBe('FIRE');
     expect((await alice.rating.mine({})).items[0]!.social.reactionCounts.FIRE).toBe(1);
 
     expect(await bob.reaction.set({ ratingId: logId, type: null })).toMatchObject({
@@ -125,7 +131,12 @@ describe('reactions', () => {
 
     // A log of Alice's requested dish is only visible to Alice until it's approved
     const { dish: pending } = await alice.dish.request({ name: 'Secret soup', cuisineId });
-    const hidden = await alice.rating.create({ restaurantId, dishId: pending.id, tier: 3 });
+    const hiddenVisit = await alice.visit.create({
+      restaurantId,
+      dishes: [{ dishId: pending.id, tier: 3 }],
+      photos: [],
+    });
+    const hidden = hiddenVisit.dishes[0]!;
     await expect(bob.reaction.set({ ratingId: hidden.id, type: 'WANT' })).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });

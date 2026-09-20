@@ -6,6 +6,7 @@ import { ratingRouter } from './routers/rating';
 import { reactionRouter } from './routers/reaction';
 import { restaurantRouter } from './routers/restaurant';
 import { userRouter } from './routers/user';
+import { visitRouter } from './routers/visit';
 import { createCallerFactory, publicProcedure, router } from './trpc';
 
 export const appRouter = router({
@@ -21,6 +22,7 @@ export const appRouter = router({
   reaction: reactionRouter,
   restaurant: restaurantRouter,
   user: userRouter,
+  visit: visitRouter,
 });
 
 export type AppRouter = typeof appRouter;

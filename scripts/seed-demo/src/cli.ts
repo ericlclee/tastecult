@@ -72,7 +72,8 @@ try {
     });
 
     console.log(
-      `\nAdded ${result.users} people, ${result.logs} logs across ${result.menuItems} menu items, ` +
+      `\nAdded ${result.users} people, ${result.logs} logs on ${result.visits} visits ` +
+        `across ${result.menuItems} menu items, ` +
         `${result.follows} follows, ${result.reactions} reactions, ${result.comments} comments ` +
         `and ${result.photosUploaded} photos.`,
     );

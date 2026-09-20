@@ -48,8 +48,11 @@ describe('planDemoData', () => {
 
   it("logs around 400 visits, each at a venue and dish matching one of that person's favourite themes", () => {
     const { users, logs } = plan();
-    expect(logs.length).toBeGreaterThan(350);
-    expect(logs.length).toBeLessThan(420);
+    const visits = new Set(logs.map((log) => `${log.userId}|${log.restaurantId}|${log.visitedOn}`));
+    expect(visits.size).toBeGreaterThan(350);
+    expect(visits.size).toBeLessThan(420);
+    // Most meals are more than one dish, so there are more logs than visits
+    expect(logs.length).toBeGreaterThan(visits.size);
 
     const themesByUser = new Map(users.map((user, i) => [user.id, PEOPLE[i]!.themes]));
     for (const log of logs) {
@@ -58,6 +61,19 @@ describe('planDemoData', () => {
       expect(dishTheme).toBe(venueTheme);
       expect(themesByUser.get(log.userId)).toContain(venueTheme);
       if (log.cuisineId) expect(log.cuisineId.startsWith(`cuisine-${dishTheme}`)).toBe(true);
+    }
+  });
+
+  it('puts several dishes on a good share of visits, never the same dish twice', () => {
+    const byVisit = new Map<string, string[]>();
+    for (const log of plan().logs) {
+      const key = `${log.userId}|${log.restaurantId}|${log.visitedOn}`;
+      byVisit.set(key, [...(byVisit.get(key) ?? []), log.dishId]);
+    }
+    const multi = [...byVisit.values()].filter((dishes) => dishes.length > 1);
+    expect(multi.length / byVisit.size).toBeGreaterThan(0.3);
+    for (const dishes of byVisit.values()) {
+      expect(new Set(dishes).size).toBe(dishes.length);
     }
   });
 

@@ -58,8 +58,13 @@ async function seed() {
   return { restaurant: restaurant.id, japanese: japanese.id, ramen: ramen.id };
 }
 
+/** A one-dish visit; the note goes on the dish so these tests can tell logs apart. */
 const logRamen = (api: Api, tier: number, note?: string) =>
-  api.rating.create({ restaurantId: ids.restaurant, dishId: ids.ramen, tier, note });
+  api.visit.create({
+    restaurantId: ids.restaurant,
+    dishes: [{ dishId: ids.ramen, tier, note }],
+    photos: [],
+  });
 
 beforeEach(async () => {
   ids = await seed();
@@ -164,8 +169,8 @@ describe('following', () => {
   });
 });
 
-describe('rating.feed', () => {
-  it('shows logs from people you follow, newest first, without your own', async () => {
+describe('visit.feed', () => {
+  it('shows visits from people you follow, newest first, without your own', async () => {
     const alice = await withProfile(ALICE, 'alice');
     const bob = await withProfile(BOB, 'bob');
     const carol = await withProfile(CAROL, 'carol');
@@ -179,33 +184,58 @@ describe('rating.feed', () => {
     await logRamen(carol, 2, 'carol');
     await logRamen(bob, 5, 'bob again');
 
-    const notes = async (cursor?: string | null) => alice.rating.feed({ limit: 2, cursor });
+    const notes = async (cursor?: string | null) => alice.visit.feed({ limit: 2, cursor });
     const first = await notes();
     const second = await notes(first.nextCursor);
 
-    expect([...first.items, ...second.items].map((log) => log.note)).toEqual([
-      'bob again',
-      'carol',
-      'bob first',
-    ]);
+    expect(
+      [...first.items, ...second.items].flatMap((visit) => visit.dishes.map((d) => d.note)),
+    ).toEqual(['bob again', 'carol', 'bob first']);
     expect(first.items[0]?.user.username).toBe('bob');
     expect(second.nextCursor).toBeNull();
   });
 
-  it("hides a followed person's logs of dishes they requested", async () => {
+  it('shows a multi-dish visit as one entry carrying all its dishes', async () => {
+    const alice = await withProfile(ALICE, 'alice');
+    const bob = await withProfile(BOB, 'bob');
+    await alice.user.follow({ username: 'bob' });
+    const udon = await prisma.dish.create({ data: { slug: 'udon', name: 'Udon' } });
+
+    await bob.visit.create({
+      restaurantId: ids.restaurant,
+      dishes: [
+        { dishId: ids.ramen, tier: 5 },
+        { dishId: udon.id, tier: 3 },
+      ],
+      photos: [],
+    });
+
+    const feed = await alice.visit.feed({});
+    expect(feed.items).toHaveLength(1);
+    expect(feed.items[0]!.dishes.map((dish) => dish.menuItem.dish.name)).toEqual(['Ramen', 'Udon']);
+  });
+
+  it("hides a followed person's visits of dishes they requested", async () => {
     const alice = await withProfile(ALICE, 'alice');
     const bob = await withProfile(BOB, 'bob');
     await alice.user.follow({ username: 'bob' });
     const { dish } = await bob.dish.request({ name: 'Ramen burger', cuisineId: ids.japanese });
-    await bob.rating.create({ restaurantId: ids.restaurant, dishId: dish.id, tier: 4 });
+    await bob.visit.create({
+      restaurantId: ids.restaurant,
+      dishes: [{ dishId: dish.id, tier: 4 }],
+      photos: [],
+    });
     await logRamen(bob, 3);
 
-    const feed = await alice.rating.feed({});
-    expect(feed.items.map((log) => log.menuItem.dish.name)).toEqual(['Ramen']);
+    const feed = await alice.visit.feed({});
+    // The visit whose only dish is hidden drops out entirely
+    expect(feed.items.flatMap((visit) => visit.dishes.map((d) => d.menuItem.dish.name))).toEqual([
+      'Ramen',
+    ]);
   });
 
   it('needs a profile', async () => {
-    await expect(as(ALICE).rating.feed({})).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' });
+    await expect(as(ALICE).visit.feed({})).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' });
   });
 });
 

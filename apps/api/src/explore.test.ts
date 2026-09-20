@@ -88,28 +88,23 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+/** A visit with a single dish — these tests are about how logs read back, not about visits. */
+const logOne = (
+  api: Api,
+  restaurantId: string,
+  dishId: string,
+  tier: number,
+  visitedAt?: string,
+  alias?: string,
+) => api.visit.create({ restaurantId, visitedAt, dishes: [{ dishId, tier, alias }], photos: [] });
+
 describe('rating.forDish', () => {
   it("shows everyone's logs of a dish and its variants, newest first, with authors", async () => {
     const alice = await withProfile(ALICE, 'alice');
     const bob = await withProfile(BOB, 'bob');
-    await alice.rating.create({
-      restaurantId: ids.pilgrims,
-      dishId: ids.margherita,
-      tier: 5,
-      visitedAt: '2026-03-01',
-    });
-    await bob.rating.create({
-      restaurantId: ids.pilgrims,
-      dishId: ids.pizza,
-      tier: 3,
-      visitedAt: '2026-02-01',
-    });
-    await alice.rating.create({
-      restaurantId: ids.kanadaYa,
-      dishId: ids.ramen,
-      tier: 4,
-      visitedAt: '2026-04-01',
-    });
+    await logOne(alice, ids.pilgrims, ids.margherita, 5, '2026-03-01');
+    await logOne(bob, ids.pilgrims, ids.pizza, 3, '2026-02-01');
+    await logOne(alice, ids.kanadaYa, ids.ramen, 4, '2026-04-01');
 
     const pizzaPage = await as(null).rating.forDish({ dishId: ids.pizza });
 
@@ -132,12 +127,7 @@ describe('rating.forRestaurant', () => {
   it('gives signed-out visitors a preview and signed-in people the full list', async () => {
     const alice = await withProfile(ALICE, 'alice');
     for (const day of ['01', '02', '03', '04', '05']) {
-      await alice.rating.create({
-        restaurantId: ids.kanadaYa,
-        dishId: ids.ramen,
-        tier: 4,
-        visitedAt: `2026-01-${day}`,
-      });
+      await logOne(alice, ids.kanadaYa, ids.ramen, 4, `2026-01-${day}`);
     }
 
     const preview = await as(null).rating.forRestaurant({ restaurantId: ids.kanadaYa });
@@ -175,7 +165,7 @@ describe('rating.forRestaurant', () => {
     const alice = await withProfile(ALICE, 'alice');
     const bob = await withProfile(BOB, 'bob');
     const log = (api: Api, tier: number, visitedAt: string, alias?: string) =>
-      api.rating.create({ restaurantId: ids.kanadaYa, dishId: ids.ramen, tier, visitedAt, alias });
+      logOne(api, ids.kanadaYa, ids.ramen, tier, visitedAt, alias);
 
     await log(alice, 2, '2026-01-01');
     await log(alice, 5, '2026-02-01'); // replaces her earlier Fine in the breakdown
@@ -195,8 +185,8 @@ describe('rating.forRestaurant', () => {
     const alice = await withProfile(ALICE, 'alice');
     const bob = await withProfile(BOB, 'bob');
     const { dish } = await bob.dish.request({ name: 'Pizza al taglio', cuisineId: ids.italian });
-    await bob.rating.create({ restaurantId: ids.pilgrims, dishId: dish.id, tier: 4 });
-    await alice.rating.create({ restaurantId: ids.pilgrims, dishId: ids.pizza, tier: 3 });
+    await logOne(bob, ids.pilgrims, dish.id, 4);
+    await logOne(alice, ids.pilgrims, ids.pizza, 3);
 
     const names = async (api: Api) =>
       (await api.rating.forRestaurant({ restaurantId: ids.pilgrims })).items.map(

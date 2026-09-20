@@ -135,27 +135,37 @@ describe('photo.createUploadUrl', () => {
   });
 });
 
-describe('rating.create', () => {
-  it('saves a full log with a photo and returns it ready to display', async () => {
+describe('visit.create', () => {
+  it('saves a full visit with a photo and returns it ready to display', async () => {
     const alice = await withProfile(ALICE, 'alice');
     const upload = await alice.photo.createUploadUrl();
 
-    const rating = await alice.rating.create({
+    const visit = await alice.visit.create({
       restaurantId: ids.restaurant,
-      dishId: ids.ramen,
-      tier: 5,
-      alias: 'Tonkotsu ramen',
-      photoPath: upload.path,
-      note: '  Rich broth  ',
-      cuisineId: ids.japanese,
+      note: '  Great meal  ',
+      dishes: [
+        {
+          dishId: ids.ramen,
+          tier: 5,
+          alias: 'Tonkotsu ramen',
+          note: '  Rich broth  ',
+          cuisineId: ids.japanese,
+        },
+      ],
+      photos: [{ path: upload.path, dishIndex: 0 }],
     });
 
-    expect(rating).toMatchObject({
+    expect(visit).toMatchObject({
+      note: 'Great meal',
+      visitedAt: londonDateString(),
+      restaurant: { name: 'Kanada-Ya' },
+      photos: [{ path: upload.path, url: upload.publicUrl, dishIndex: 0 }],
+    });
+    expect(visit.dishes).toHaveLength(1);
+    expect(visit.dishes[0]).toMatchObject({
       tier: 5,
       note: 'Rich broth',
-      photoPath: upload.path,
       photoUrl: upload.publicUrl,
-      visitedAt: londonDateString(),
       cuisine: { slug: 'japanese' },
       menuItem: {
         alias: 'Tonkotsu ramen',
@@ -165,28 +175,116 @@ describe('rating.create', () => {
     });
   });
 
+  it('logs several dishes on one visit, each with its own tier and note', async () => {
+    const alice = await withProfile(ALICE, 'alice');
+    const gyoza = await prisma.dish.create({ data: { slug: 'gyoza', name: 'Gyoza' } });
+
+    const visit = await alice.visit.create({
+      restaurantId: ids.restaurant,
+      dishes: [
+        { dishId: ids.ramen, tier: 5, note: 'The reason to come' },
+        { dishId: gyoza.id, tier: 3, alias: 'Pork gyoza' },
+      ],
+      photos: [],
+    });
+
+    // Dishes come back in the order they were sent
+    expect(visit.dishes.map((dish) => [dish.menuItem.dish.name, dish.tier])).toEqual([
+      ['Ramen', 5],
+      ['Gyoza', 3],
+    ]);
+    // One visit, two logs, two menu items — and both logs share the visit's date
+    expect(await prisma.visit.count()).toBe(1);
+    expect(await prisma.rating.count()).toBe(2);
+    expect(await prisma.menuItem.count()).toBe(2);
+    expect(new Set(visit.dishes.map((dish) => dish.visitId)).size).toBe(1);
+    expect(new Set(visit.dishes.map((dish) => dish.visitedAt))).toEqual(new Set([visit.visitedAt]));
+  });
+
+  it('keeps two separate visits to one restaurant on one day apart', async () => {
+    const alice = await withProfile(ALICE, 'alice');
+    const one = { restaurantId: ids.restaurant, visitedAt: '2026-02-01', photos: [] };
+
+    const lunch = await alice.visit.create({ ...one, dishes: [{ dishId: ids.ramen, tier: 4 }] });
+    const dinner = await alice.visit.create({ ...one, dishes: [{ dishId: ids.ramen, tier: 2 }] });
+
+    expect(lunch.id).not.toBe(dinner.id);
+    expect(await prisma.visit.count()).toBe(2);
+  });
+
+  it('attaches photos to the whole visit or to one dish on it', async () => {
+    const alice = await withProfile(ALICE, 'alice');
+    const gyoza = await prisma.dish.create({ data: { slug: 'gyoza', name: 'Gyoza' } });
+    const [table, ofGyoza] = await Promise.all([
+      alice.photo.createUploadUrl(),
+      alice.photo.createUploadUrl(),
+    ]);
+
+    const visit = await alice.visit.create({
+      restaurantId: ids.restaurant,
+      dishes: [
+        { dishId: ids.ramen, tier: 4 },
+        { dishId: gyoza.id, tier: 5 },
+      ],
+      photos: [
+        { path: table.path, dishIndex: null },
+        { path: ofGyoza.path, dishIndex: 1 },
+      ],
+    });
+
+    expect(visit.photos.map((photo) => photo.dishIndex)).toEqual([null, 1]);
+    // A photo of the visit as a whole isn't any single dish's photo
+    expect(visit.dishes[0]!.photoUrl).toBeNull();
+    expect(visit.dishes[1]!.photoUrl).toBe(ofGyoza.publicUrl);
+  });
+
+  it('rejects a photo pointing at a dish that is not on the visit', async () => {
+    const alice = await withProfile(ALICE, 'alice');
+    const upload = await alice.photo.createUploadUrl();
+
+    await expect(
+      alice.visit.create({
+        restaurantId: ids.restaurant,
+        dishes: [{ dishId: ids.ramen, tier: 4 }],
+        photos: [{ path: upload.path, dishIndex: 3 }],
+      }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+
   it('saves with only the required fields', async () => {
     const alice = await withProfile(ALICE, 'alice');
 
-    const rating = await alice.rating.create({
+    const visit = await alice.visit.create({
       restaurantId: ids.restaurant,
-      dishId: ids.ramen,
-      tier: 3,
+      dishes: [{ dishId: ids.ramen, tier: 3 }],
+      photos: [],
     });
 
-    expect(rating).toMatchObject({
+    expect(visit).toMatchObject({ note: null, photos: [] });
+    expect(visit.dishes[0]).toMatchObject({
       note: null,
-      photoPath: null,
       photoUrl: null,
       cuisine: null,
       menuItem: { alias: null },
     });
   });
 
+  it('requires at least one dish', async () => {
+    const alice = await withProfile(ALICE, 'alice');
+
+    await expect(
+      alice.visit.create({ restaurantId: ids.restaurant, dishes: [], photos: [] }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+  });
+
   it('reuses a menu item for the same menu name however it is typed', async () => {
     const alice = await withProfile(ALICE, 'alice');
     const log = (tier: number, alias?: string) =>
-      alice.rating.create({ restaurantId: ids.restaurant, dishId: ids.ramen, tier, alias });
+      alice.visit.create({
+        restaurantId: ids.restaurant,
+        dishes: [{ dishId: ids.ramen, tier, alias }],
+        photos: [],
+      });
 
     await log(4, 'Tonkotsu Ramen');
     await log(5, '  tonkotsu   ramen ');
@@ -199,51 +297,70 @@ describe('rating.create', () => {
   });
 
   it('requires sign-in and a profile', async () => {
-    const input = { restaurantId: ids.restaurant, dishId: ids.ramen, tier: 4 };
-    await expect(as(null).rating.create(input)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    await expect(as(ALICE).rating.create(input)).rejects.toMatchObject({
+    const input = {
+      restaurantId: ids.restaurant,
+      dishes: [{ dishId: ids.ramen, tier: 4 }],
+      photos: [],
+    };
+    await expect(as(null).visit.create(input)).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    await expect(as(ALICE).visit.create(input)).rejects.toMatchObject({
       code: 'PRECONDITION_FAILED',
     });
   });
 
   it("rejects someone else's photo or a made-up path", async () => {
     const alice = await withProfile(ALICE, 'alice');
-    const input = { restaurantId: ids.restaurant, dishId: ids.ramen, tier: 4 };
+    const input = {
+      restaurantId: ids.restaurant,
+      dishes: [{ dishId: ids.ramen, tier: 4 }],
+    };
 
     await expect(
-      alice.rating.create({ ...input, photoPath: `${BOB}/${randomUUID()}.jpg` }),
+      alice.visit.create({ ...input, photos: [{ path: `${BOB}/${randomUUID()}.jpg` }] }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(
-      alice.rating.create({ ...input, photoPath: `${ALICE}/../${BOB}/photo.jpg` }),
+      alice.visit.create({ ...input, photos: [{ path: `${ALICE}/../${BOB}/photo.jpg` }] }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
   it('accepts a past visit date and rejects a future one', async () => {
     const alice = await withProfile(ALICE, 'alice');
-    const input = { restaurantId: ids.restaurant, dishId: ids.ramen, tier: 4 };
+    const input = {
+      restaurantId: ids.restaurant,
+      dishes: [{ dishId: ids.ramen, tier: 4 }],
+      photos: [],
+    };
 
-    const past = await alice.rating.create({ ...input, visitedAt: '2026-01-15' });
+    const past = await alice.visit.create({ ...input, visitedAt: '2026-01-15' });
     expect(past.visitedAt).toBe('2026-01-15');
+    expect(past.dishes[0]!.visitedAt).toBe('2026-01-15');
 
     const tomorrow = londonDateString(new Date(Date.now() + 36 * 60 * 60 * 1000));
-    await expect(alice.rating.create({ ...input, visitedAt: tomorrow })).rejects.toMatchObject({
+    await expect(alice.visit.create({ ...input, visitedAt: tomorrow })).rejects.toMatchObject({
       code: 'BAD_REQUEST',
     });
   });
 
-  it('rejects unknown restaurants and cuisines, and tiers outside 1–5', async () => {
+  it('rejects unknown restaurants, dishes and cuisines, and tiers outside 1–5', async () => {
     const alice = await withProfile(ALICE, 'alice');
-    const input = { restaurantId: ids.restaurant, dishId: ids.ramen, tier: 4 };
+    const input = {
+      restaurantId: ids.restaurant,
+      dishes: [{ dishId: ids.ramen, tier: 4 }],
+      photos: [],
+    };
 
-    await expect(alice.rating.create({ ...input, restaurantId: 'missing' })).rejects.toMatchObject({
+    await expect(alice.visit.create({ ...input, restaurantId: 'missing' })).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
-    await expect(alice.rating.create({ ...input, cuisineId: 'missing' })).rejects.toMatchObject({
-      code: 'BAD_REQUEST',
-    });
-    await expect(alice.rating.create({ ...input, tier: 6 })).rejects.toMatchObject({
-      code: 'BAD_REQUEST',
-    });
+    await expect(
+      alice.visit.create({ ...input, dishes: [{ dishId: 'missing', tier: 4 }] }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(
+      alice.visit.create({ ...input, dishes: [{ dishId: ids.ramen, tier: 4, cuisineId: 'nope' }] }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    await expect(
+      alice.visit.create({ ...input, dishes: [{ dishId: ids.ramen, tier: 6 }] }),
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
   });
 });
 
@@ -263,11 +380,14 @@ describe('dish.request', () => {
       cuisines: [{ slug: 'japanese' }],
     });
 
-    const input = { restaurantId: ids.restaurant, dishId: dish.id, tier: 4 };
-    await expect(alice.rating.create(input)).resolves.toMatchObject({
-      menuItem: { dish: { status: 'PENDING' } },
-    });
-    await expect(bob.rating.create(input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const input = {
+      restaurantId: ids.restaurant,
+      dishes: [{ dishId: dish.id, tier: 4 }],
+      photos: [],
+    };
+    const logged = await alice.visit.create(input);
+    expect(logged.dishes[0]!.menuItem.dish.status).toBe('PENDING');
+    await expect(bob.visit.create(input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
   });
 
   it('shows pending dishes in search only to the person who requested them', async () => {
@@ -304,7 +424,12 @@ describe('rating.mine', () => {
     const alice = await withProfile(ALICE, 'alice');
     const bob = await withProfile(BOB, 'bob');
     const log = (api: ReturnType<typeof as>, visitedAt: string) =>
-      api.rating.create({ restaurantId: ids.restaurant, dishId: ids.ramen, tier: 4, visitedAt });
+      api.visit.create({
+        restaurantId: ids.restaurant,
+        visitedAt,
+        dishes: [{ dishId: ids.ramen, tier: 4 }],
+        photos: [],
+      });
 
     await log(alice, '2026-01-01');
     await log(alice, '2026-03-01');

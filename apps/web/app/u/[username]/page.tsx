@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { LogFeed } from '../../log-feed';
+import { VisitFeed } from '../../visit-feed';
 import { useSession } from '../../session';
 import { useTRPC } from '../../trpc';
 import { FollowButton } from './follow-button';
@@ -16,8 +16,8 @@ export default function ProfilePage() {
   const { session } = useSession();
   const profile = useQuery(trpc.user.byUsername.queryOptions({ username }));
   const me = useQuery(trpc.user.me.queryOptions(undefined, { enabled: Boolean(session) }));
-  const logs = useInfiniteQuery(
-    trpc.rating.forUser.infiniteQueryOptions(
+  const visits = useInfiniteQuery(
+    trpc.visit.forUser.infiniteQueryOptions(
       { username, limit: 20 },
       { getNextPageParam: (page) => page.nextCursor },
     ),
@@ -83,13 +83,13 @@ export default function ProfilePage() {
       </p>
       {followControl}
 
-      <LogFeed
-        pages={logs.data?.pages}
-        status={logs.status}
-        error={logs.error?.message ?? null}
-        hasNextPage={logs.hasNextPage}
-        isFetchingNextPage={logs.isFetchingNextPage}
-        onLoadMore={() => void logs.fetchNextPage()}
+      <VisitFeed
+        pages={visits.data?.pages}
+        status={visits.status}
+        error={visits.error?.message ?? null}
+        hasNextPage={visits.hasNextPage}
+        isFetchingNextPage={visits.isFetchingNextPage}
+        onLoadMore={() => void visits.fetchNextPage()}
         on="user"
       />
     </main>

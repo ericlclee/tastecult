@@ -17,7 +17,7 @@ export function FollowButton({
   const refresh = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: trpc.user.pathKey() }),
-      queryClient.invalidateQueries({ queryKey: trpc.rating.feed.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.visit.feed.pathKey() }),
     ]);
 
   const follow = useMutation(trpc.user.follow.mutationOptions({ onSuccess: refresh }));

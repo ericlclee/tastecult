@@ -2,9 +2,9 @@
 // tier CHECK constraint) live in hand-edited migration SQL — keep them in sync.
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "esm"
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
   // Extensionless imports inside the generated client, so Next.js (Turbopack)
   // can bundle it — it can't resolve "./file.js" to file.ts
   importFileExtension = ""
@@ -53,6 +53,7 @@ model User {
   role        Role     @default(USER)
   createdAt   DateTime @default(now())
 
+  visits              Visit[]
   ratings             Rating[]
   reactions           Reaction[]
   comments            Comment[]
@@ -111,6 +112,7 @@ model Restaurant {
   updatedAt      DateTime  @updatedAt
 
   menuItems MenuItem[]
+  visits    Visit[]
 
   @@index([latitude, longitude])
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "Restaurant_name_trgm_idx")
@@ -149,11 +151,11 @@ model Dish {
   createdAt     DateTime   @default(now())
 
   cuisines    DishCuisine[]
-  requestedBy User?      @relation(fields: [requestedById], references: [id], onDelete: SetNull)
-  mergedInto  Dish?      @relation("DishMerge", fields: [mergedIntoId], references: [id])
-  mergedFrom  Dish[]     @relation("DishMerge")
-  parent      Dish?      @relation("DishVariants", fields: [parentId], references: [id], onDelete: SetNull)
-  variants    Dish[]     @relation("DishVariants")
+  requestedBy User?         @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  mergedInto  Dish?         @relation("DishMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom  Dish[]        @relation("DishMerge")
+  parent      Dish?         @relation("DishVariants", fields: [parentId], references: [id], onDelete: SetNull)
+  variants    Dish[]        @relation("DishVariants")
   menuItems   MenuItem[]
 
   @@index([status])
@@ -196,32 +198,79 @@ model MenuItem {
   @@index([dishId])
 }
 
-/// One logged visit. Every visit is a new row; stats use each user's latest.
+/// One trip to one restaurant on one day, holding every dish logged on it.
+/// A person can have more than one visit to the same restaurant on the same
+/// date (lunch and dinner), so there's deliberately no unique key on that.
+model Visit {
+  id           String   @id @default(cuid())
+  userId       String
+  restaurantId String
+  visitedAt    DateTime @db.Date
+  /// About the visit as a whole; each dish keeps its own note too
+  note         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id])
+  ratings    Rating[]
+  photos     VisitPhoto[]
+
+  @@index([userId, visitedAt])
+  @@index([restaurantId, visitedAt])
+  @@index([createdAt])
+}
+
+/// A photo belongs to the visit, and may also point at one dish logged on it.
+/// `ratingId` is cleared rather than cascaded when that dish log goes, so a
+/// photo of the table survives removing one dish from the visit.
+model VisitPhoto {
+  id        String   @id @default(cuid())
+  visitId   String
+  ratingId  String?
+  path      String   @unique
+  /// Orders the photos within a visit
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  visit  Visit   @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  rating Rating? @relation(fields: [ratingId], references: [id], onDelete: SetNull)
+
+  @@index([visitId, position])
+  @@index([ratingId])
+}
+
+/// One dish logged on a visit. Every log is a new row; stats use each user's latest.
 model Rating {
   id         String   @id @default(cuid())
+  visitId    String
+  // Denormalised from the visit so every existing query, index and ordering
+  // clause keeps working without a join. Kept in sync whenever a visit changes.
   userId     String
   menuItemId String
   // 1–5: Skip, Fine, Good, Must-order, Life-changing (CHECK constraint in migration)
   tier       Int
   visitedAt  DateTime @db.Date
-  // Optional, the logger's call for this visit. Any cuisine is valid: the UI
+  // Optional, the logger's call for this dish. Any cuisine is valid: the UI
   // suggests the dish's cuisines and an "Other" option unlocks the rest.
   cuisineId  String?
-  photoPath  String?
   note       String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  visit    Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id])
   cuisine  Cuisine? @relation(fields: [cuisineId], references: [id], onDelete: SetNull)
 
   reactions Reaction[]
   comments  Comment[]
+  photos    VisitPhoto[]
 
   @@index([menuItemId, userId, visitedAt])
   @@index([userId, visitedAt])
   @@index([cuisineId])
+  @@index([visitId])
 }
 
 /// One reaction per person per log, from a small fixed set; changing it replaces the old one.

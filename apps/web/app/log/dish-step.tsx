@@ -14,9 +14,14 @@ export interface PickedDish {
 export function DishStep({
   value,
   onChange,
+  /** Keeps field ids unique when a visit has several dish pickers on the page. */
+  idPrefix = 'dish',
+  legend = 'Dish',
 }: {
   value: PickedDish | null;
   onChange: (dish: PickedDish | null) => void;
+  idPrefix?: string;
+  legend?: string;
 }) {
   const trpc = useTRPC();
   const [query, setQuery] = useState('');
@@ -32,7 +37,7 @@ export function DishStep({
   if (value) {
     return (
       <fieldset>
-        <legend>Dish</legend>
+        <legend>{legend}</legend>
         <p>
           {value.name}
           {value.status === 'PENDING' ? ' (requested — awaiting approval)' : ''}{' '}
@@ -59,11 +64,11 @@ export function DishStep({
 
   return (
     <fieldset>
-      <legend>Dish</legend>
+      <legend>{legend}</legend>
       <p>
-        <label htmlFor="dish-search">What did you eat?</label>{' '}
+        <label htmlFor={`${idPrefix}-search`}>What did you eat?</label>{' '}
         <input
-          id="dish-search"
+          id={`${idPrefix}-search`}
           type="search"
           autoComplete="off"
           value={query}
@@ -112,9 +117,9 @@ export function DishStep({
             Request &ldquo;{q}&rdquo; as a new dish. You can log it now; it&apos;s reviewed before
             others see it.
           </p>
-          <label htmlFor="request-cuisine">Cuisine</label>{' '}
+          <label htmlFor={`${idPrefix}-request-cuisine`}>Cuisine</label>{' '}
           <select
-            id="request-cuisine"
+            id={`${idPrefix}-request-cuisine`}
             value={cuisineId}
             onChange={(event) => setCuisineId(event.target.value)}
           >

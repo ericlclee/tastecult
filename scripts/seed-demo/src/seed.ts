@@ -18,11 +18,13 @@ export async function resetDemoData(prisma: PrismaClient, photos: DemoPhotoStore
   });
   const ids = demoUsers.map((user) => user.id);
 
-  const [follows, ratings, menuItems, users] = await prisma.$transaction([
+  const [follows, ratings, , menuItems, users] = await prisma.$transaction([
     prisma.follow.deleteMany({
       where: { OR: [{ followerId: { in: ids } }, { followingId: { in: ids } }] },
     }),
+    // Deleting the visits takes their logs and photo rows with them
     prisma.rating.deleteMany({ where: { userId: { in: ids } } }),
+    prisma.visit.deleteMany({ where: { userId: { in: ids } } }),
     // Menu items a real person has also logged stay; only demo-only ones go
     prisma.menuItem.deleteMany({ where: { createdById: { in: ids }, ratings: { none: {} } } }),
     prisma.user.deleteMany({ where: { id: { in: ids } } }),
@@ -88,11 +90,41 @@ export async function seedDemoData(
     });
   }
 
+  // Logs of one restaurant on one day by one person are one visit, so the demo
+  // data exercises multi-dish visits the same way real logging produces them
+  const visitIds = new Map<string, string>();
+  const visits: {
+    id: string;
+    userId: string;
+    restaurantId: string;
+    visitedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+  }[] = [];
+  for (const log of plan.logs) {
+    const key = `${log.userId}|${log.restaurantId}|${log.visitedOn}`;
+    if (visitIds.has(key)) continue;
+    const id = randomUUID();
+    visitIds.set(key, id);
+    visits.push({
+      id,
+      userId: log.userId,
+      restaurantId: log.restaurantId,
+      visitedAt: new Date(`${log.visitedOn}T00:00:00Z`),
+      createdAt: log.createdAt,
+      updatedAt: log.createdAt,
+    });
+  }
+  const visitIdFor = (log: PlannedLog) =>
+    visitIds.get(`${log.userId}|${log.restaurantId}|${log.visitedOn}`)!;
+  await prisma.visit.createMany({ data: visits });
+
   // Ids chosen here so reactions and comments can point at logs created in bulk
   const logIds = plan.logs.map(() => randomUUID());
   await prisma.rating.createMany({
     data: plan.logs.map((log, index) => ({
       id: logIds[index]!,
+      visitId: visitIdFor(log),
       userId: log.userId,
       menuItemId: menuItemIds.get(menuItemKey(log))!,
       tier: log.tier,
@@ -100,8 +132,14 @@ export async function seedDemoData(
       createdAt: log.createdAt,
       note: log.note,
       cuisineId: log.cuisineId,
-      photoPath: photoPaths.get(log) ?? null,
     })),
+  });
+
+  await prisma.visitPhoto.createMany({
+    data: plan.logs.flatMap((log, index) => {
+      const path = photoPaths.get(log);
+      return path ? [{ visitId: visitIdFor(log), ratingId: logIds[index]!, path }] : [];
+    }),
   });
 
   const follows = await prisma.follow.createMany({ data: plan.follows, skipDuplicates: true });
@@ -124,6 +162,7 @@ export async function seedDemoData(
 
   return {
     users: plan.users.length,
+    visits: visits.length,
     logs: plan.logs.length,
     menuItems: menuItemIds.size,
     follows: follows.count,

@@ -3,14 +3,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '../trpc';
 
-export function DeleteLogButton({ id, onDeleted }: { id: string; onDeleted?: () => void }) {
+export function DeleteVisitButton({ id, onDeleted }: { id: string; onDeleted?: () => void }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const remove = useMutation(
-    trpc.rating.delete.mutationOptions({
+    trpc.visit.delete.mutationOptions({
       onSuccess: async () => {
-        // Leave the edit page before its own query refetches a log that no longer exists
+        // Leave the edit page before its own query refetches a visit that no longer exists
         onDeleted?.();
+        await queryClient.invalidateQueries({ queryKey: trpc.visit.pathKey() });
         await queryClient.invalidateQueries({ queryKey: trpc.rating.pathKey() });
       },
     }),
@@ -22,12 +23,16 @@ export function DeleteLogButton({ id, onDeleted }: { id: string; onDeleted?: () 
         type="button"
         disabled={remove.isPending}
         onClick={() => {
-          if (window.confirm('Delete this log? Its photo, reactions and comments go too.')) {
+          if (
+            window.confirm(
+              'Delete this visit? Every dish on it goes too, with their photos, reactions and comments.',
+            )
+          ) {
             remove.mutate({ id });
           }
         }}
       >
-        {remove.isPending ? 'Deleting…' : 'Delete log'}
+        {remove.isPending ? 'Deleting…' : 'Delete visit'}
       </button>
       {remove.error ? (
         <span role="alert"> Couldn&apos;t delete: {remove.error.message}</span>

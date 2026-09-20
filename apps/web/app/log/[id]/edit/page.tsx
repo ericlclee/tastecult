@@ -3,20 +3,27 @@
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { useSession } from '../../../session';
 import { useTRPC } from '../../../trpc';
-import { DeleteLogButton } from '../../delete-log-button';
-import { LogForm } from '../../log-form';
 
-// Unstyled on purpose — editing one of your logs, to replace with the real design.
+/**
+ * A dish is edited as part of the visit it belongs to, so this old per-log link
+ * forwards to that visit's editor. Links to it exist in the wild and in bookmarks.
+ */
 export default function EditLogPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const trpc = useTRPC();
   const { session, ready } = useSession();
   const log = useQuery(trpc.rating.mineById.queryOptions({ id }, { enabled: Boolean(session) }));
+  const visitId = log.data?.visitId;
 
-  if (!ready) {
+  useEffect(() => {
+    if (visitId) router.replace(`/visit/${visitId}/edit`);
+  }, [visitId, router]);
+
+  if (!ready || (session && log.isPending)) {
     return (
       <main>
         <p>Loading…</p>
@@ -48,20 +55,9 @@ export default function EditLogPage() {
     );
   }
 
-  if (!log.data) {
-    return (
-      <main>
-        <p>Loading…</p>
-      </main>
-    );
-  }
-
   return (
-    // Keyed so the form's fields are filled from this log only once, not reset by refetches
-    <LogForm key={log.data.id} existing={log.data}>
-      <p>
-        <DeleteLogButton id={log.data.id} onDeleted={() => router.push('/me')} />
-      </p>
-    </LogForm>
+    <main>
+      <p>Taking you to this visit…</p>
+    </main>
   );
 }
